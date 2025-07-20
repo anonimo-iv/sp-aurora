@@ -1,5 +1,6 @@
 """
-Intel GPU compatible utilities with oneCCL communication backend
+Intel GPU compatible utilities with synchronous oneCCL communication
+Fixed version that prevents P2P deadlocks
 """
 
 from typing import Optional, Tuple
@@ -110,11 +111,11 @@ def unflatten_varlen_lse(lse, cu_seqlens, max_seqlen: int):
 
 class IntelRingComm:
     """
-    Intel GPU compatible ring communication using oneCCL backend
+    Intel GPU compatible ring communication using synchronous oneCCL backend
+    Fixed version with immediate P2P execution to prevent deadlocks
     """
     def __init__(self, process_group: dist.ProcessGroup):
         self._process_group = process_group
-        self._ops = []
         
         # Handle single process case
         if not dist.is_initialized():
@@ -122,7 +123,6 @@ class IntelRingComm:
         
         self.rank = dist.get_rank(self._process_group)
         self.world_size = dist.get_world_size(self._process_group)
-        self._reqs = None
 
         self.send_rank = (self.rank + 1) % self.world_size
         self.recv_rank = (self.rank - 1) % self.world_size
@@ -137,15 +137,6 @@ class IntelRingComm:
     def _init_oneccl_backend(self):
         """Initialize oneCCL backend for Intel GPU communication"""
         if ONECCL_AVAILABLE and hasattr(torch, 'xpu') and torch.xpu.is_available():
-            # Set XPU device for communication
-            if not dist.is_initialized():
-                # Use MPI-compatible initialization
-                try:
-                    from .mpi_utils import init_distributed_backend
-                    init_distributed_backend(backend='ccl')
-                except ImportError:
-                    # Fallback to direct initialization
-                    dist.init_process_group(backend='ccl')
             self.device = 'xpu'
         else:
             # Fallback to default backend
@@ -157,58 +148,6 @@ class IntelRingComm:
             return tensor.to('xpu')
         return tensor
 
-    def send_recv(
-        self, to_send: torch.Tensor, recv_tensor: Optional[torch.Tensor] = None
-    ) -> torch.Tensor:
-        # Ensure tensors are on the correct device
-        to_send = self._ensure_xpu_tensor(to_send)
-        
-        if recv_tensor is None:
-            res = torch.empty_like(to_send)
-        else:
-            res = self._ensure_xpu_tensor(recv_tensor)
-
-        send_op = dist.P2POp(
-            dist.isend, to_send, self.send_rank, group=self._process_group
-        )
-        recv_op = dist.P2POp(dist.irecv, res, self.recv_rank, group=self._process_group)
-        self._ops.append(send_op)
-        self._ops.append(recv_op)
-        return res
-
-    def commit(self):
-        if self._reqs is not None:
-            raise RuntimeError("commit called twice")
-        self._reqs = dist.batch_isend_irecv(self._ops)
-
-    def wait(self):
-        if self._reqs is None:
-            raise RuntimeError("wait called before commit")
-        for req in self._reqs:
-            req.wait()
-        self._reqs = None
-        self._ops = []
-
-    def send_recv(self, to_send: torch.Tensor, recv_tensor=None):
-        """Single tensor ring communication with Intel GPU compatibility"""
-        to_send = self._ensure_xpu_tensor(to_send)
-        
-        if recv_tensor is None:
-            res = torch.empty_like(to_send)
-        else:
-            res = self._ensure_xpu_tensor(recv_tensor)
-        
-        # Use P2POp pattern like original RingComm
-        send_op = dist.P2POp(
-            dist.isend, to_send, self.send_rank, group=self._process_group
-        )
-        recv_op = dist.P2POp(
-            dist.irecv, res, self.recv_rank, group=self._process_group
-        )
-        self._ops.append(send_op)
-        self._ops.append(recv_op)
-        return res
-
     def send_recv_kv(
         self,
         k: torch.Tensor,
@@ -216,15 +155,57 @@ class IntelRingComm:
         k_buffer: Optional[torch.Tensor] = None,
         v_buffer: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Synchronous send/receive for k and v tensors to prevent deadlock.
+        Uses immediate execution instead of batched operations.
+        """
         # Debug: Print communication info for first iteration only
         if not hasattr(self, '_debug_printed'):
-            print(f"[Rank {self.rank}] Starting P2P: send to {self.send_rank}, recv from {self.recv_rank}")
+            print(f"[Rank {self.rank}] Starting synchronous P2P: send to {self.send_rank}, recv from {self.recv_rank}")
             self._debug_printed = True
             
-        # Use the same pattern as original RingComm
-        next_k = self.send_recv(k, k_buffer)
-        next_v = self.send_recv(v, v_buffer)
+        # Ensure tensors are on the correct device
+        k = self._ensure_xpu_tensor(k)
+        v = self._ensure_xpu_tensor(v)
+        
+        # Create receive buffers
+        if k_buffer is None:
+            next_k = torch.empty_like(k)
+        else:
+            next_k = self._ensure_xpu_tensor(k_buffer)
+            
+        if v_buffer is None:
+            next_v = torch.empty_like(v)
+        else:
+            next_v = self._ensure_xpu_tensor(v_buffer)
+        
+        # Execute P2P operations immediately using batch_isend_irecv
+        # This ensures both ranks execute their operations simultaneously
+        ops = []
+        ops.append(dist.P2POp(dist.isend, k, self.send_rank, group=self._process_group))
+        ops.append(dist.P2POp(dist.irecv, next_k, self.recv_rank, group=self._process_group))
+        ops.append(dist.P2POp(dist.isend, v, self.send_rank, group=self._process_group))
+        ops.append(dist.P2POp(dist.irecv, next_v, self.recv_rank, group=self._process_group))
+        
+        # Execute all operations at once and wait for completion
+        reqs = dist.batch_isend_irecv(ops)
+        for req in reqs:
+            req.wait()
+            
+        if not hasattr(self, '_debug_printed_complete'):
+            print(f"[Rank {self.rank}] P2P communication completed successfully")
+            self._debug_printed_complete = True
+            
         return next_k, next_v
+
+    # Deprecated methods kept for compatibility but not used
+    def commit(self):
+        """No-op for compatibility - operations are now synchronous"""
+        pass
+
+    def wait(self):
+        """No-op for compatibility - operations are now synchronous"""
+        pass
 
 
 class IntelAllGatherComm:

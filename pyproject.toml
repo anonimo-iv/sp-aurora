@@ -8,25 +8,17 @@ version = "0.1.6"
 authors = [
   { name="zhuzilin", email="zhuzilinallen@gmail.com" },
 ]
-description = "Ring attention implementation with flash attention. Supports NVIDIA GPUs (CUDA) and Intel GPUs (XPU)."
+description = "Ring attention implementation with flash attention for Intel GPUs (XPU)."
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = [
-    "torch>=2.0.0",
-]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-
-[project.optional-dependencies]
-intel = [
+dependencies = [
     "intel-extension-for-pytorch>=2.0.0",
     "oneccl-bind-pt",
-]
-cuda = [
-    "flash-attn>=2.0.0",
 ]
 
 [project.urls]

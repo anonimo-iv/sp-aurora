@@ -75,7 +75,8 @@ def intel_ring_flash_attn_forward(
             out, lse = update_out_and_lse(out, lse, block_out, block_lse)
 
         if step + 1 != comm.world_size:
-            # Communication is now synchronous, no need to wait
+            comm.commit()
+            comm.wait()
             k, v = next_k, next_v
 
     out = out.to(q.dtype)

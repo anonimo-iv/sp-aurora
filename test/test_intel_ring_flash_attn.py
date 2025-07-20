@@ -2,6 +2,17 @@
 """
 Comprehensive test suite for Intel GPU Ring Flash Attention
 Tests both basic flash attention and distributed ring attention functionality
+
+Usage:
+    # With torchrun (existing)
+    torchrun --nproc_per_node=2 test_intel_ring_flash_attn.py
+    
+    # With mpiexec (new)
+    mpiexec -n 2 python test_intel_ring_flash_attn.py
+    
+    # With Intel MPI for Intel GPU
+    mpiexec -n 2 -genv CCL_BACKEND=native -genv CCL_ATL_TRANSPORT=ofi \
+        python test_intel_ring_flash_attn.py
 """
 
 import os
@@ -10,6 +21,9 @@ import torch
 import torch.distributed as dist
 from contextlib import nullcontext
 import traceback
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Check for Intel GPU support
 try:
@@ -38,6 +52,9 @@ from ring_flash_attn.intel_ring_flash_attn import intel_ring_flash_attn_func
 
 # Import test utilities
 from utils import log, set_seed
+
+# Import MPI utilities for mpiexec compatibility
+from ring_flash_attn.mpi_utils import setup_mpi_distributed, cleanup_distributed
 
 
 def allclose(a, b, rtol=1e-3, atol=1e-3):
@@ -155,54 +172,38 @@ def test_intel_vs_reference():
 
 
 def test_distributed_ring_attention():
-    """Test distributed ring attention on Intel GPU"""
+    """Test distributed ring attention on Intel GPU with MPI compatibility"""
     print("\n" + "="*60)
     print("TEST: Distributed Ring Attention on Intel GPU")
     print("="*60)
     
-    # Check if we're in distributed mode
-    is_distributed_run = 'WORLD_SIZE' in os.environ and int(os.environ['WORLD_SIZE']) > 1
-    
-    if not dist.is_initialized():
-        if not is_distributed_run:
-            print("⚠️  Skipping distributed test - not running with torchrun")
+    try:
+        # Setup distributed environment with MPI compatibility
+        setup_info = setup_mpi_distributed(backend='ccl')
+        
+        rank = setup_info['rank']
+        world_size = setup_info['world_size']
+        device = setup_info['device']
+        launcher = setup_info['launcher']
+        backend = setup_info['backend']
+        
+        if world_size == 1:
+            print("⚠️  Single process detected - skipping distributed test")
             print("   Run with: torchrun --nproc_per_node=2 test_intel_ring_flash_attn.py")
+            print("   Or with: mpiexec -n 2 python test_intel_ring_flash_attn.py")
             return True
         
-        # Setup CCL environment variables (from Aurora training script)
-        os.environ['CCL_BACKEND'] = 'native'
-        os.environ['CCL_ATL_TRANSPORT'] = 'ofi'
-        os.environ['FI_PROVIDER'] = 'cxi'  # Critical for Aurora fabric interface
-        os.environ['CCL_ZE_IPC_EXCHANGE'] = 'drmfd'
-        os.environ['CCL_ZE_ENABLE'] = '1'
-        os.environ['CCL_LOG_LEVEL'] = 'info'
-        os.environ['IPEX_XPU_ONEDNN_LAYOUT'] = '1'
-        os.environ['IPEX_OFFLINE_COMPILER'] = '1'
-        os.environ['SYCL_CACHE_PERSISTENT'] = '1'  # Prevents build-for-1-device issues
-        os.environ['SYCL_DEVICE_FILTER'] = 'level_zero:*'  # Proper SYCL device selection
-        os.environ['SYCL_PI_LEVEL_ZERO_PROGRAM_BUILD_TRACK'] = '2'  # Program building tracking
+        print(f"[Rank {rank}] Setup successful!")
+        print(f"[Rank {rank}] Launcher: {launcher}")
+        print(f"[Rank {rank}] World size: {world_size}")
+        print(f"[Rank {rank}] Device: {device}")
+        print(f"[Rank {rank}] Backend: {backend}")
         
-        print("Attempting distributed initialization...")
-        try:
-            # Try CCL first for Intel XPU devices
-            print("Trying CCL backend...")
-            import datetime
-            dist.init_process_group(backend='ccl', timeout=datetime.timedelta(seconds=30))
-            print("✅ CCL backend initialized successfully")
-        except Exception as e:
-            print(f"CCL initialization failed, trying gloo: {e}")
-            try:
-                print("Trying gloo backend...")
-                dist.init_process_group(backend='gloo', timeout=datetime.timedelta(seconds=30))
-                print("✅ Gloo backend initialized successfully")
-            except Exception as e2:
-                print(f"❌ All backend initialization failed: {e2}")
-                print("Skipping distributed tests")
-                return True
+    except Exception as e:
+        print(f"❌ Distributed setup failed: {e}")
+        traceback.print_exc()
+        return False
     
-    rank = dist.get_rank()
-    world_size = dist.get_world_size()
-    device = f'xpu:{rank}' if torch.xpu.device_count() > 1 else 'xpu'
     dtype = torch.float16
     
     set_seed(rank)
@@ -312,7 +313,14 @@ def test_ring_attention_variants():
     
     rank = dist.get_rank()
     world_size = dist.get_world_size()
-    device = f'xpu:{rank}' if torch.xpu.device_count() > 1 else 'xpu'
+    
+    # Use device from distributed setup if available, otherwise fallback
+    try:
+        from ring_flash_attn.mpi_utils import get_device_for_rank
+        device = get_device_for_rank()
+    except:
+        device = f'xpu:{rank}' if torch.xpu.device_count() > 1 else 'xpu'
+    
     dtype = torch.float16
     
     batch_size = 1
@@ -444,6 +452,13 @@ def main():
     print(f"✅ Intel GPU detected: {torch.xpu.device_count()} device(s)")
     print(f"✅ Intel Extension for PyTorch version: {ipex.__version__}")
     
+    # Detect environment
+    from ring_flash_attn.mpi_utils import setup_distributed_environment
+    
+    env_info = setup_distributed_environment()
+    print(f"Detected launcher: {env_info['launcher']}")
+    print(f"Process info: rank={env_info['rank']}, world_size={env_info['world_size']}")
+    
     # Run tests
     tests = [
         ("Basic Flash Attention", test_intel_flash_attn_basic),
@@ -451,15 +466,16 @@ def main():
         ("Memory and Performance", test_memory_and_performance),
     ]
     
-    # Add distributed tests if running with torchrun
-    if 'WORLD_SIZE' in os.environ and int(os.environ['WORLD_SIZE']) > 1:
+    # Add distributed tests if running with multiple processes
+    if env_info['world_size'] > 1:
         tests.extend([
             ("Distributed Ring Attention", test_distributed_ring_attention),
             ("Ring Attention Variants", test_ring_attention_variants),
         ])
     else:
-        print("\n⚠️  Note: Run with torchrun to test distributed features")
+        print("\n⚠️  Note: Run with torchrun or mpiexec to test distributed features")
         print("   Example: torchrun --nproc_per_node=2 test_intel_ring_flash_attn.py")
+        print("   Example: mpiexec -n 2 python test_intel_ring_flash_attn.py")
     
     results = []
     for test_name, test_func in tests:
@@ -471,31 +487,35 @@ def main():
             traceback.print_exc()
             results.append((test_name, False))
     
-    # Summary
-    print("\n" + "="*80)
-    print("📊 TEST SUMMARY")
-    print("="*80)
-    
-    passed = sum(1 for _, result in results if result)
-    total = len(results)
-    
-    for test_name, result in results:
-        status = "✅ PASSED" if result else "❌ FAILED"
-        print(f"{test_name}: {status}")
-    
-    print(f"\nTotal: {passed}/{total} tests passed")
-    
-    if passed == total:
-        print("\n🎉 All tests passed! Intel GPU Ring Flash Attention is working!")
-        return 0
+    # Summary (only from rank 0 to avoid spam)
+    if env_info['rank'] == 0:
+        print("\n" + "="*80)
+        print("📊 TEST SUMMARY")
+        print("="*80)
+        
+        passed = sum(1 for _, result in results if result)
+        total = len(results)
+        
+        for test_name, result in results:
+            status = "✅ PASSED" if result else "❌ FAILED"
+            print(f"{test_name}: {status}")
+        
+        print(f"\nTotal: {passed}/{total} tests passed")
+        
+        if passed == total:
+            print("\n🎉 All tests passed! Intel GPU Ring Flash Attention is working!")
+            return_code = 0
+        else:
+            print(f"\n⚠️  {total - passed} test(s) failed. Check the output above for details.")
+            return_code = 1
     else:
-        print(f"\n⚠️  {total - passed} test(s) failed. Check the output above for details.")
-        return 1
+        return_code = 0
+    
+    # Cleanup
+    cleanup_distributed()
+    
+    return return_code
 
 
 if __name__ == "__main__":
-    # Clean up any existing process groups
-    if dist.is_initialized():
-        dist.destroy_process_group()
-    
     sys.exit(main())
