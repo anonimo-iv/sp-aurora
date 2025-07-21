@@ -10,7 +10,7 @@ import torch.distributed as dist
 
 # Set environment variables for Intel GPU and oneCCL
 os.environ['CCL_BACKEND'] = 'native'
-os.environ['CCL_ATL_TRANSPORT'] = 'ofi'
+os.environ['CCL_ATL_TRANSPORT'] = 'mpi'
 os.environ['FI_PROVIDER'] = 'cxi'
 os.environ['CCL_ZE_IPC_EXCHANGE'] = 'drmfd'
 os.environ['CCL_ZE_ENABLE'] = '1'

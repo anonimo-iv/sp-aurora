@@ -10,7 +10,7 @@ import torch.distributed as dist
 
 # Set environment variables for Intel GPU and oneCCL
 os.environ['CCL_BACKEND'] = 'native'
-os.environ['CCL_ATL_TRANSPORT'] = 'ofi'
+os.environ['CCL_ATL_TRANSPORT'] = 'mpi'
 os.environ['FI_PROVIDER'] = 'cxi'
 os.environ['CCL_ZE_IPC_EXCHANGE'] = 'drmfd'
 os.environ['CCL_ZE_ENABLE'] = '1'
@@ -20,9 +20,11 @@ os.environ['IPEX_OFFLINE_COMPILER'] = '1'
 os.environ['SYCL_CACHE_PERSISTENT'] = '1'
 os.environ['SYCL_DEVICE_FILTER'] = 'level_zero:*'
 os.environ['SYCL_PI_LEVEL_ZERO_PROGRAM_BUILD_TRACK'] = '2'
+os.environ['CCL_ATL_SYNC_COLL'] = '1'
+os.environ['CCL_OP_SYNC'] = '1'
 
 # Additional debugging environment variables
-os.environ['CCL_P2P_ACCESS_POLICY'] = 'off'
+os.environ['CCL_P2P_ACCESS_POLICY'] = 'on'
 os.environ['CCL_ALLREDUCE'] = 'ring'
 os.environ['FI_CXI_DISABLE_HOST_REGISTER'] = '1'
 
