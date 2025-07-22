@@ -5,8 +5,11 @@ Simple test for ring communication pattern that's hanging
 
 import os
 import sys
+import socket
+import datetime
 import torch
 import torch.distributed as dist
+from mpi4py import MPI
 
 # Import Intel GPU modules
 import intel_extension_for_pytorch as ipex
@@ -15,13 +18,9 @@ import oneccl_bindings_for_pytorch
 def test_ring_communication():
     """Test the exact ring communication pattern used in intel_ring_flash_attn"""
     
-    if not dist.is_initialized():
-        print("Initializing process group...")
-        dist.init_process_group(backend='ccl')
-    
     rank = dist.get_rank()
     world_size = dist.get_world_size()
-    device = 'xpu'
+    device = f'xpu:{rank % 12}'  # Use modulo for multi-GPU nodes
     
     print(f"[Rank {rank}] World size: {world_size}, Device: {device}")
     
@@ -40,6 +39,13 @@ def test_ring_communication():
     recv_rank = (rank - 1) % world_size
     
     print(f"[Rank {rank}] Will send to {send_rank}, receive from {recv_rank}")
+    
+    # CCL backend requires a collective operation before P2P communication
+    print(f"[Rank {rank}] Performing dummy all_gather to initialize CCL communicators...")
+    dummy_tensor = torch.tensor([float(rank)], device=device, dtype=torch.float32)
+    gather_list = [torch.zeros_like(dummy_tensor) for _ in range(world_size)]
+    dist.all_gather(gather_list, dummy_tensor)
+    print(f"[Rank {rank}] CCL communicators initialized, gathered values: {[t.item() for t in gather_list]}")
     
     # Test 1: Simple blocking send/recv
     print(f"\n[Rank {rank}] Test 1: Simple blocking send/recv")
@@ -100,6 +106,31 @@ def test_ring_communication():
     print(f"\n[Rank {rank}] ✅ All tests completed successfully!")
 
 def main():
+    # MPI initialization
+    # MPI.COMM_WORLD.Barrier()
+    
+    # Set up environment variables from MPI
+    os.environ['RANK'] = str(os.environ.get('PMI_RANK', MPI.COMM_WORLD.Get_rank()))
+    os.environ['WORLD_SIZE'] = str(os.environ.get('PMI_SIZE', MPI.COMM_WORLD.Get_size()))
+    mpi_world_size = MPI.COMM_WORLD.Get_size()
+    mpi_my_rank = MPI.COMM_WORLD.Get_rank()
+    
+    # Set up master address and port
+    if mpi_my_rank == 0:
+        master_addr = socket.gethostname()
+        sock = socket.socket()
+        sock.bind(('', 0))
+        master_port = sock.getsockname()[1]
+        sock.close()
+    else:
+        master_addr = None
+        master_port = None
+    
+    master_addr = MPI.COMM_WORLD.bcast(master_addr, root=0)
+    master_port = MPI.COMM_WORLD.bcast(master_port, root=0)
+    os.environ["MASTER_ADDR"] = master_addr
+    os.environ["MASTER_PORT"] = str(master_port)
+    
     # Check Intel GPU
     if not torch.xpu.is_available():
         print("❌ Intel GPU not available")
@@ -107,6 +138,13 @@ def main():
     
     print(f"Process PID: {os.getpid()}")
     print(f"✅ Intel GPU available: {torch.xpu.device_count()} devices")
+    
+    # Initialize distributed process group
+    MPI.COMM_WORLD.Barrier()
+    dist.init_process_group(backend="ccl", init_method='env://', 
+                          world_size=mpi_world_size, rank=mpi_my_rank, 
+                          timeout=datetime.timedelta(seconds=3600))
+    MPI.COMM_WORLD.Barrier()
     
     try:
         test_ring_communication()
