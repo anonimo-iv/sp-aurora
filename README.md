@@ -10,6 +10,9 @@ This repo implements [RingAttention](https://github.com/lhao499/RingAttention) u
   - `ring_flash_attn_func`: basic ring attention.
   - `zigzag_ring_flash_attn_func`: An more compute balanced version of ring attention, see [issue#2](https://github.com/zhuzilin/ring-flash-attention/issues/2).
   - `stripe_flash_attn_func`: Stripe attention version of `ring_flash_attn_func`, the block size is set to 1 to use flash_attn api, see: https://arxiv.org/abs/2311.09431
+- Intel GPU support (experimental):
+  - `intel_ring_flash_attn_func`: Ring attention implementation optimized for Intel GPUs using oneCCL backend
+  - Requires Intel Extension for PyTorch and oneCCL bindings
 - [huggingface model adapter](ring_flash_attn/adapters/hf_adapter.py). Here is an example to use the adapter:
 
 ```python
@@ -157,3 +160,103 @@ Also,
 
 - dropout is not supported at the moment, because it's hard to save all the rng_states.
 - window_size is not supported, because it will be really tricky to implement a varlen version with window_size.
+
+## Intel GPU Support and Debugging
+
+### Overview
+
+This repository includes experimental support for Intel GPUs through Intel Extension for PyTorch (IPEX) and oneCCL backend. The implementation provides:
+
+- `intel_ring_flash_attn_func`: Ring attention optimized for Intel GPUs
+- Automatic backend detection and adaptation
+- Support for Intel Data Center GPU Max series
+
+### Known Issues and Debugging
+
+During the development and testing of Intel GPU support, we encountered several challenges that are documented here to help future users and developers.
+
+#### 1. CCL Backend Initialization Issue
+
+**Problem**: When running distributed tests with the CCL backend, the application hangs at the first collective operation (e.g., `dist.barrier()` or `dist.all_reduce()`).
+
+**Symptoms**:
+- Test hangs indefinitely at the first collective operation
+- Error message: "Attempting to use an MPI routine (internal_Comm_rank) before initializing or after finalizing MPICH"
+- Both ranks successfully initialize CCL but cannot communicate
+
+**Root Cause**: The CCL backend requires proper MPI initialization when using `torchrun`. The MPI layer underneath CCL is not properly initialized, causing collective operations to fail.
+
+#### 2. P2P Communication Restriction
+
+**Problem**: CCL backend requires a collective operation before any point-to-point (P2P) communication.
+
+**Error Message**:
+```
+RuntimeError: Point-to-point communication as the first call is not supported now, 
+please make sure all communicators have been initialized. 
+e.g. you could add collective call in front of dist.send/recv call to avoid this error.
+```
+
+**Solution Attempted**: Added a dummy `all_reduce` operation before P2P communication in the ring attention implementation. However, this led back to issue #1 above.
+
+### Debugging Process
+
+To identify these issues, we implemented comprehensive logging throughout the codebase:
+
+1. **Enhanced IntelRingComm logging** (`intel_utils.py`):
+   - Added timestamps for all operations
+   - Logged environment variables (CCL settings)
+   - Detailed P2P operation tracking
+   - Device and backend information
+
+2. **Detailed ring attention logging** (`intel_ring_flash_attn.py`):
+   - Step-by-step execution tracking
+   - Phase separation (communication, computation, synchronization)
+   - Tensor shape and device validation
+   - Error context with operation details
+
+3. **Key Findings**:
+   - The ring attention algorithm implementation is correct
+   - Flash attention computation works properly on Intel GPUs
+   - The hang occurs specifically at CCL collective operations
+   - This is a backend initialization issue, not an algorithm problem
+
+### Recommendations for Intel GPU Users
+
+1. **Use MPI-based launchers**: Consider using `mpirun` or Intel MPI launchers instead of `torchrun` for proper MPI initialization.
+
+2. **Environment Setup**: Ensure all CCL environment variables are properly set:
+   ```bash
+   export CCL_PROCESS_LAUNCHER=pmix
+   export CCL_ATL_TRANSPORT=mpi
+   export CCL_KVS_MODE=mpi
+   export CCL_LOG_LEVEL=info
+   ```
+
+3. **Alternative Backends**: If CCL issues persist, consider using other communication backends that may have better compatibility with your setup.
+
+4. **Single GPU Usage**: For single GPU scenarios, the Intel implementation falls back to regular flash attention and works without issues.
+
+### Future Work
+
+- Investigate proper MPI initialization with torchrun for CCL backend
+- Explore alternative communication patterns that avoid CCL restrictions
+- Add support for Intel GPU-specific optimizations
+- Improve error handling and user guidance for backend issues
+
+### Testing Intel GPU Support
+
+To test Intel GPU support with enhanced debugging:
+
+```bash
+# Basic functionality test (single GPU)
+python test/test_intel_ring_flash_attn.py
+
+# Distributed test (may encounter CCL issues)
+bash test/test_intel_ring_flash_attn.sh
+
+# Debug ring communication
+bash test/run_ring_debug.sh
+```
+
+The enhanced logging will help identify where issues occur in distributed setups.

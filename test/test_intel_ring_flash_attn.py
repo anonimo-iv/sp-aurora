@@ -35,15 +35,11 @@ except ImportError:
     print("Intel Extension for PyTorch not installed, exiting")
     sys.exit(0)
 
-# Import ring flash attention modules
+# Import ring flash attention modules - Intel GPU backend automatically used
 from ring_flash_attn import (
     ring_flash_attn_func,
     ring_flash_attn_qkvpacked_func,
     ring_flash_attn_kvpacked_func,
-    zigzag_ring_flash_attn_func,
-    zigzag_ring_flash_attn_qkvpacked_func,
-    ring_flash_attn_varlen_func,
-    zigzag_ring_flash_attn_varlen_func,
 )
 
 # Import Intel-specific implementations
@@ -53,8 +49,8 @@ from ring_flash_attn.intel_ring_flash_attn import intel_ring_flash_attn_func
 # Import test utilities
 from utils import log, set_seed
 
-# Import MPI utilities for mpiexec compatibility
-from ring_flash_attn.mpi_utils import setup_mpi_distributed, cleanup_distributed
+# Import Intel utilities
+import torch.distributed as dist
 
 
 def allclose(a, b, rtol=1e-3, atol=1e-3):
@@ -178,14 +174,17 @@ def test_distributed_ring_attention():
     print("="*60)
     
     try:
-        # Setup distributed environment with MPI compatibility
-        setup_info = setup_mpi_distributed(backend='ccl')
+        # Setup distributed environment
+        if not dist.is_initialized():
+            print("[DEBUG] Initializing process group with backend='ccl'")
+            dist.init_process_group(backend='ccl')
+            print("[DEBUG] Process group initialized")
         
-        rank = setup_info['rank']
-        world_size = setup_info['world_size']
-        device = setup_info['device']
-        launcher = setup_info['launcher']
-        backend = setup_info['backend']
+        rank = dist.get_rank()
+        world_size = dist.get_world_size()
+        device = torch.device('xpu' if hasattr(torch, 'xpu') and torch.xpu.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu')
+        launcher = 'manual'
+        backend = dist.get_backend()
         
         if world_size == 1:
             print("⚠️  Single process detected - skipping distributed test")
@@ -243,9 +242,11 @@ def test_distributed_ring_attention():
         signal.alarm(30)  # 30 second timeout
         
         print(f"[Rank {rank}] Starting ring attention forward pass...")
+        print(f"[Rank {rank}] Local QKV shape: {local_qkv.shape}")
         start_time = time.time()
         
         # Test ring attention forward
+        print(f"[Rank {rank}] Calling intel_ring_flash_attn_func")
         ring_out, ring_lse, _ = intel_ring_flash_attn_func(
             local_qkv[:, :, 0],  # q
             local_qkv[:, :, 1],  # k
@@ -254,6 +255,7 @@ def test_distributed_ring_attention():
             causal=True,
             return_attn_probs=False,
         )
+        print(f"[Rank {rank}] intel_ring_flash_attn_func returned")
         
         elapsed = time.time() - start_time
         signal.alarm(0)  # Cancel timeout
@@ -316,7 +318,7 @@ def test_ring_attention_variants():
     
     # Use device from distributed setup if available, otherwise fallback
     try:
-        from ring_flash_attn.mpi_utils import get_device_for_rank
+        from ring_flash_attn import get_device_for_rank
         device = get_device_for_rank()
     except:
         device = f'xpu:{rank}' if torch.xpu.device_count() > 1 else 'xpu'
@@ -331,11 +333,11 @@ def test_ring_attention_variants():
     # Ensure seqlen is divisible by world_size
     seqlen = (seqlen // world_size) * world_size
     
-    # Test configurations
+    # Test configurations - using Intel-compatible variants only
     test_variants = [
         ("ring_flash_attn_func", ring_flash_attn_func),
         ("ring_flash_attn_qkvpacked_func", ring_flash_attn_qkvpacked_func),
-        ("zigzag_ring_flash_attn_func", zigzag_ring_flash_attn_func),
+        ("intel_ring_flash_attn_func", intel_ring_flash_attn_func),
     ]
     
     for variant_name, variant_func in test_variants:
@@ -348,8 +350,17 @@ def test_ring_attention_variants():
                 local_input = torch.randn(batch_size, seqlen // world_size, 3, nheads, d, 
                                         device=device, dtype=dtype, requires_grad=True)
                 out = variant_func(local_input, causal=True)
+            elif variant_name == "intel_ring_flash_attn_func":
+                # Intel-specific ring flash attention with correct parameter order
+                q = torch.randn(batch_size, seqlen // world_size, nheads, d, 
+                              device=device, dtype=dtype, requires_grad=True)
+                k = torch.randn(batch_size, seqlen // world_size, nheads, d, 
+                              device=device, dtype=dtype, requires_grad=True)
+                v = torch.randn(batch_size, seqlen // world_size, nheads, d, 
+                              device=device, dtype=dtype, requires_grad=True)
+                out = variant_func(q, k, v, causal=True, return_attn_probs=False)
             else:
-                # Separate Q, K, V
+                # Separate Q, K, V for standard ring attention
                 q = torch.randn(batch_size, seqlen // world_size, nheads, d, 
                               device=device, dtype=dtype, requires_grad=True)
                 k = torch.randn(batch_size, seqlen // world_size, nheads, d, 
@@ -443,6 +454,7 @@ def main():
     """Run all Intel GPU tests"""
     print("🚀 Intel GPU Ring Flash Attention Comprehensive Test Suite")
     print("="*80)
+    print(f"[DEBUG] Script started at PID: {os.getpid()}")
     
     # Check Intel GPU availability
     if not torch.xpu.is_available():
@@ -451,13 +463,22 @@ def main():
     
     print(f"✅ Intel GPU detected: {torch.xpu.device_count()} device(s)")
     print(f"✅ Intel Extension for PyTorch version: {ipex.__version__}")
+    print(f"[DEBUG] torch.distributed available: {hasattr(torch, 'distributed')}")
+    print(f"[DEBUG] Is distributed initialized: {dist.is_initialized() if hasattr(torch, 'distributed') else 'N/A'}")
     
     # Detect environment
-    from ring_flash_attn.mpi_utils import setup_distributed_environment
-    
-    env_info = setup_distributed_environment()
-    print(f"Detected launcher: {env_info['launcher']}")
-    print(f"Process info: rank={env_info['rank']}, world_size={env_info['world_size']}")
+    try:
+        from ring_flash_attn.mpi_utils import setup_distributed_environment
+        env_info = setup_distributed_environment()
+        print(f"Detected launcher: {env_info['launcher']}")
+        print(f"Process info: rank={env_info['rank']}, world_size={env_info['world_size']}")
+    except ImportError:
+        print("Warning: MPI utilities not available, using fallback")
+        env_info = {
+            'launcher': 'unknown',
+            'rank': 0,
+            'world_size': 1
+        }
     
     # Run tests
     tests = [
@@ -512,7 +533,8 @@ def main():
         return_code = 0
     
     # Cleanup
-    cleanup_distributed()
+    if dist.is_initialized():
+        dist.destroy_process_group()
     
     return return_code
 

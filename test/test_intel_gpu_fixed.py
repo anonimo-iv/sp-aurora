@@ -39,7 +39,8 @@ except ImportError:
     sys.exit(0)
 
 # Import ring flash attention modules
-from ring_flash_attn.intel_ring_flash_attn_fixed import intel_ring_flash_attn_func
+# from ring_flash_attn.intel_ring_flash_attn_fixed import intel_ring_flash_attn_func
+from ring_flash_attn.intel_ring_flash_attn import intel_ring_flash_attn_func
 
 def test_fixed_ring_attention():
     """Test the fixed ring attention implementation"""

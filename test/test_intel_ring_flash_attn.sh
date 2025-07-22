@@ -38,6 +38,7 @@ echo "Environment variables set for Intel GPU"
 echo "Starting torchrun with 2 processes..."
 
 # Run the fixed test
-torchrun --nproc_per_node=2 --nnodes=1 --node_rank=0 --master_addr="127.0.0.1" --master_port=29500 ./test_intel_gpu_fixed.py
+# torchrun --nproc_per_node=2 --nnodes=1 --node_rank=0 --master_addr="127.0.0.1" --master_port=29500 ./test_intel_gpu_fixed.py
+torchrun --nproc_per_node=2 --nnodes=1 --node_rank=0 --master_addr="127.0.0.1" --master_port=29500 test_intel_ring_flash_attn.py
 
 echo "Test completed."
