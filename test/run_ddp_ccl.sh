@@ -21,6 +21,7 @@ export IPEX_XPU_ONEDNN_LAYOUT=1
 export IPEX_OFFLINE_COMPILER=1
 export SYCL_CACHE_PERSISTENT=1
 export SYCL_DEVICE_FILTER=level_zero:*
+export MPIR_CVAR_ENABLE_GPU=1
 
 # Add Intel Extension library path
 export LD_LIBRARY_PATH=/lus/flare/projects/hp-ptycho/binkma/venv/infer/lib/python3.10/site-packages/intel_extension_for_pytorch/lib:$LD_LIBRARY_PATH

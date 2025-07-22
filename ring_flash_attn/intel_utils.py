@@ -52,8 +52,39 @@ def _update_out_and_lse(
     block_lse: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
 
+    # Ensure block_out matches the dimension ordering of out
+    # If out has shape [batch, num_heads, seq_len, head_dim] but block_out has [batch, seq_len, num_heads, head_dim]
+    if out.shape[1] != block_out.shape[1] and out.shape[1] == block_out.shape[2]:
+        block_out = block_out.transpose(1, 2)
+    
     block_out = block_out.to(torch.float32)
-    block_lse = block_lse.transpose(-2, -1).unsqueeze(dim=-1)
+    
+    # Handle block_lse shape transformation to match lse format
+    # First, ensure block_lse has 4 dimensions
+    if block_lse.dim() == 3:
+        # If [batch, seq_len, num_heads] -> add dimension to get [batch, seq_len, num_heads, 1]
+        block_lse = block_lse.unsqueeze(dim=-1)
+    
+    # Now both tensors should be 4D. Check if dimensions need to be transposed to match lse
+    if lse.shape != block_lse.shape:
+        # Check if block_lse needs to be transposed to match lse's dimension ordering
+        # lse typically has shape [batch, num_heads, seq_len, 1] 
+        # block_lse might have shape [batch, seq_len, num_heads, 1]
+        if (lse.shape[1] == block_lse.shape[2] and 
+            lse.shape[2] == block_lse.shape[1] and
+            lse.shape[0] == block_lse.shape[0] and
+            lse.shape[3] == block_lse.shape[3]):
+            # Transpose dimensions 1 and 2 to match lse's ordering
+            block_lse = block_lse.transpose(1, 2)
+        
+        # If still not matching, try other reshape strategies
+        elif block_lse.numel() == lse.numel():
+            # Same number of elements, try direct reshape
+            block_lse = block_lse.view_as(lse)
+        
+        # Final shape check
+        if lse.shape != block_lse.shape:
+            raise RuntimeError(f"Shape mismatch after transformation: lse.shape={lse.shape}, block_lse.shape={block_lse.shape}")
 
     # new_lse = lse + torch.log(1 + torch.exp(block_lse - lse))
     # torch.exp(lse - new_lse) * out + torch.exp(block_lse - new_lse) * block_out
@@ -75,7 +106,9 @@ def update_out_and_lse(
     if out is None:
         if slice_ is not None:
             raise RuntimeError("first update_out_and_lse should not pass slice_ args")
-        out = block_out.to(torch.float32)
+        # Transpose block_out to match the dimension ordering we'll use for lse
+        # block_out: [batch, seq_len, num_heads, head_dim] -> [batch, num_heads, seq_len, head_dim]
+        out = block_out.transpose(1, 2).to(torch.float32)
         lse = block_lse.transpose(-2, -1).unsqueeze(dim=-1)
     elif slice_ is not None:
         slice_out, slice_lse = out[slice_], lse[slice_]
@@ -123,7 +156,7 @@ class IntelRingComm:
             print(f"  {key}={os.environ.get(key, 'NOT SET')}")
         
         self._process_group = process_group
-        self._ops = []
+        self._reqs = []  # Store individual requests instead of ops
         
         # Handle single process case
         if not dist.is_initialized():
@@ -132,7 +165,6 @@ class IntelRingComm:
         print(f"[IntelRingComm.__init__] Getting rank and world size")
         self.rank = dist.get_rank(self._process_group)
         self.world_size = dist.get_world_size(self._process_group)
-        self._reqs = None
         
         print(f"[IntelRingComm.__init__] Rank: {self.rank}, World size: {self.world_size}")
         print(f"[IntelRingComm.__init__] Backend: {dist.get_backend()}")
@@ -198,41 +230,40 @@ class IntelRingComm:
             res = self._ensure_xpu_tensor(recv_tensor)
             print(f"[Rank {self.rank}] send_recv: Using provided recv tensor with shape={res.shape}")
 
-        print(f"[Rank {self.rank}] send_recv: Creating P2POp for send to rank {self.send_rank}")
-        send_op = dist.P2POp(
-            dist.isend, to_send, self.send_rank, group=self._process_group
-        )
-        print(f"[Rank {self.rank}] send_recv: Creating P2POp for recv from rank {self.recv_rank}")
-        recv_op = dist.P2POp(dist.irecv, res, self.recv_rank, group=self._process_group)
-        self._ops.append(send_op)
-        self._ops.append(recv_op)
+        # Fix for deadlock: Order operations based on rank parity to break circular dependency
+        if self.rank % 2 == 0:
+            # Even ranks: send first, then receive
+            print(f"[Rank {self.rank}] send_recv: Even rank - Starting isend to rank {self.send_rank}")
+            send_req = dist.isend(to_send, self.send_rank, group=self._process_group)
+            
+            print(f"[Rank {self.rank}] send_recv: Starting irecv from rank {self.recv_rank}")
+            recv_req = dist.irecv(res, self.recv_rank, group=self._process_group)
+        else:
+            # Odd ranks: receive first, then send
+            print(f"[Rank {self.rank}] send_recv: Odd rank - Starting irecv from rank {self.recv_rank}")
+            recv_req = dist.irecv(res, self.recv_rank, group=self._process_group)
+            
+            print(f"[Rank {self.rank}] send_recv: Starting isend to rank {self.send_rank}")
+            send_req = dist.isend(to_send, self.send_rank, group=self._process_group)
+        
+        # Store requests for later wait
+        self._reqs.append(send_req)
+        self._reqs.append(recv_req)
         
         elapsed = time.time() - start_time
-        print(f"[Rank {self.rank}] send_recv: Completed in {elapsed:.3f}s, total ops={len(self._ops)}")
+        print(f"[Rank {self.rank}] send_recv: Completed in {elapsed:.3f}s, total reqs={len(self._reqs)}")
         return res
 
     def commit(self):
-        start_time = time.time()
-        if self._reqs is not None:
-            raise RuntimeError("commit called twice")
-        print(f"[Rank {self.rank}] IntelRingComm.commit() - Starting batch_isend_irecv with {len(self._ops)} ops at {start_time}")
-        for i, op in enumerate(self._ops):
-            op_type = "send" if hasattr(op.op, '__name__') and 'send' in op.op.__name__ else "recv"
-            print(f"[Rank {self.rank}] IntelRingComm.commit() - Op {i}: {op_type} to/from rank {op.peer}")
-        
-        try:
-            print(f"[Rank {self.rank}] IntelRingComm.commit() - Calling dist.batch_isend_irecv...")
-            self._reqs = dist.batch_isend_irecv(self._ops)
-            elapsed = time.time() - start_time
-            print(f"[Rank {self.rank}] IntelRingComm.commit() - batch_isend_irecv returned {len(self._reqs)} requests in {elapsed:.3f}s")
-        except Exception as e:
-            print(f"[Rank {self.rank}] IntelRingComm.commit() - ERROR in batch_isend_irecv: {e}")
-            raise
+        # No-op since operations start immediately when created
+        print(f"[Rank {self.rank}] IntelRingComm.commit() - No-op, operations already started")
 
     def wait(self):
         start_time = time.time()
-        if self._reqs is None:
-            raise RuntimeError("wait called before commit")
+        if not self._reqs:
+            print(f"[Rank {self.rank}] IntelRingComm.wait() - No requests to wait for")
+            return
+            
         print(f"[Rank {self.rank}] IntelRingComm.wait() - Waiting for {len(self._reqs)} requests at {start_time}")
         
         try:
@@ -246,8 +277,7 @@ class IntelRingComm:
             print(f"[Rank {self.rank}] IntelRingComm.wait() - ERROR waiting for request: {e}")
             raise
         
-        self._reqs = None
-        self._ops = []
+        self._reqs = []
         elapsed = time.time() - start_time
         print(f"[Rank {self.rank}] IntelRingComm.wait() - All requests completed in {elapsed:.3f}s")
 
@@ -264,9 +294,9 @@ class IntelRingComm:
         print(f"[Rank {self.rank}] send_recv_kv: k.shape={k.shape}, v.shape={v.shape}")
         print(f"[Rank {self.rank}] send_recv_kv: k.dtype={k.dtype}, v.dtype={v.dtype}")
         print(f"[Rank {self.rank}] send_recv_kv: k.device={k.device}, v.device={v.device}")
-        print(f"[Rank {self.rank}] send_recv_kv: Number of ops before: {len(self._ops)}")
+        print(f"[Rank {self.rank}] send_recv_kv: Number of reqs before: {len(self._reqs)}")
             
-        # Use the same pattern as original RingComm
+        # Simply call send_recv for each tensor - operations start immediately
         print(f"[Rank {self.rank}] send_recv_kv: Calling send_recv for k tensor...")
         next_k = self.send_recv(k, k_buffer)
         print(f"[Rank {self.rank}] send_recv_kv: send_recv for k completed")
@@ -276,7 +306,7 @@ class IntelRingComm:
         print(f"[Rank {self.rank}] send_recv_kv: send_recv for v completed")
         
         elapsed = time.time() - start_time
-        print(f"[Rank {self.rank}] send_recv_kv: Number of ops after: {len(self._ops)}")
+        print(f"[Rank {self.rank}] send_recv_kv: Number of reqs after: {len(self._reqs)}")
         print(f"[Rank {self.rank}] send_recv_kv: Completed in {elapsed:.3f}s")
         return next_k, next_v
 

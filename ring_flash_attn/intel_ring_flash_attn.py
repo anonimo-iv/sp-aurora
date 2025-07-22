@@ -174,7 +174,8 @@ def intel_ring_flash_attn_forward(
     # Final processing
     finalize_start = time.time()
     print(f"[Rank {comm.rank}] Finalizing output...")
-    out = out.to(q.dtype)
+    # Convert back to original dimension ordering: [batch, num_heads, seq_len, head_dim] -> [batch, seq_len, num_heads, head_dim]
+    out = out.transpose(1, 2).to(q.dtype)
     lse = lse.squeeze(dim=-1).transpose(1, 2)
     finalize_elapsed = time.time() - finalize_start
     print(f"[Rank {comm.rank}] Output finalized in {finalize_elapsed:.3f}s")
