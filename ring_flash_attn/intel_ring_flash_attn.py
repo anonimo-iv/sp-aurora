@@ -25,80 +25,38 @@ def intel_ring_flash_attn_forward(
 ):
     """Intel GPU compatible ring flash attention forward pass"""
     
-    start_time = time.time()
-    rank = dist.get_rank() if dist.is_initialized() else 0
-    print(f"\n[Rank {rank}] ========== intel_ring_flash_attn_forward START ==========")
-    print(f"[Rank {rank}] Time: {start_time}")
-    print(f"[Rank {rank}] PID: {os.getpid()}")
-    print(f"[Rank {rank}] Input shapes - q: {q.shape}, k: {k.shape}, v: {v.shape}")
-    print(f"[Rank {rank}] Input dtypes - q: {q.dtype}, k: {k.dtype}, v: {v.dtype}")
-    print(f"[Rank {rank}] Input devices - q: {q.device}, k: {k.device}, v: {v.device}")
-    print(f"[Rank {rank}] Parameters - dropout_p: {dropout_p}, causal: {causal}, softmax_scale: {softmax_scale}")
-    print(f"[Rank {rank}] dist.is_initialized: {dist.is_initialized()}")
-    if dist.is_initialized():
-        print(f"[Rank {rank}] Backend: {dist.get_backend()}")
-        print(f"[Rank {rank}] World size: {dist.get_world_size()}")
-    
     # Ensure tensors are on Intel GPU (XPU)
     if hasattr(torch, 'xpu') and torch.xpu.is_available():
-        device_start = time.time()
         q = q.to('xpu')
         k = k.to('xpu') 
         v = v.to('xpu')
-        device_elapsed = time.time() - device_start
-        print(f"[Rank {rank}] Tensors moved to XPU in {device_elapsed:.3f}s")
     
     # Handle single process case (no distributed communication needed)
     if not dist.is_initialized() or (process_group is None and dist.get_world_size() == 1):
         # Single process - use regular flash attention
-        print(f"[Rank {rank}] Single process mode - using regular flash attention")
         from .intel_flash_attn import intel_flash_attn_forward
         return intel_flash_attn_forward(q, k, v, causal=causal, softmax_scale=softmax_scale)
     
-    comm_start = time.time()
-    print(f"[Rank {rank}] Creating IntelRingComm with process_group={process_group}")
     comm = IntelRingComm(process_group)
-    comm_elapsed = time.time() - comm_start
-    print(f"[Rank {rank}] IntelRingComm created in {comm_elapsed:.3f}s")
     
     # CCL backend requires a collective operation before P2P communication
-    print(f"[Rank {rank}] Performing dummy all_reduce to initialize CCL communicators...")
     dummy_tensor = torch.tensor([1.0], device='xpu')
     dist.all_reduce(dummy_tensor)
-    print(f"[Rank {rank}] CCL communicators initialized")
 
     out = None
     lse = None
 
     next_k, next_v = None, None
 
-    loop_start = time.time()
-    print(f"[Rank {comm.rank}] Starting main ring communication loop with {comm.world_size} steps")
     
     for step in range(comm.world_size):
-        step_start = time.time()
-        print(f"\n[Rank {comm.rank}] ===== Step {step}/{comm.world_size-1} START =====")
         
         # Communication phase
         if step + 1 != comm.world_size:
-            comm_phase_start = time.time()
-            print(f"[Rank {comm.rank}] Step {step}: Preparing to send k.shape={k.shape}, v.shape={v.shape}")
-            print(f"[Rank {comm.rank}] Step {step}: k.device={k.device}, v.device={v.device}")
-            print(f"[Rank {comm.rank}] Step {step}: Calling send_recv_kv...")
-            
-            try:
-                next_k, next_v = comm.send_recv_kv(k, v)
-                comm_phase_elapsed = time.time() - comm_phase_start
-                print(f"[Rank {comm.rank}] Step {step}: send_recv_kv returned in {comm_phase_elapsed:.3f}s")
-                print(f"[Rank {comm.rank}] Step {step}: next_k.shape={next_k.shape}, next_v.shape={next_v.shape}")
-            except Exception as e:
-                print(f"[Rank {comm.rank}] Step {step}: ERROR in send_recv_kv: {e}")
-                raise
+            next_k, next_v = comm.send_recv_kv(k, v)
 
         # Computation phase
         if not causal or step <= comm.rank:
-            comp_phase_start = time.time()
-            print(f"[Rank {comm.rank}] Step {step}: Starting computation phase (causal={causal}, step={step}, rank={comm.rank})")
             
             params = get_default_args(_flash_attn_forward).copy()
             params.update(
@@ -124,64 +82,20 @@ def intel_ring_flash_attn_forward(
                 )
             
             # Use Intel compatible flash attention
-            print(f"[Rank {comm.rank}] Step {step}: Calling _flash_attn_forward...")
-            try:
-                block_out, block_lse = _flash_attn_forward(**params)
-                print(f"[Rank {comm.rank}] Step {step}: _flash_attn_forward completed")
-                print(f"[Rank {comm.rank}] Step {step}: block_out.shape={block_out.shape}, block_lse.shape={block_lse.shape}")
-                
-                print(f"[Rank {comm.rank}] Step {step}: Calling update_out_and_lse...")
-                out, lse = update_out_and_lse(out, lse, block_out, block_lse)
-                print(f"[Rank {comm.rank}] Step {step}: update_out_and_lse completed")
-                
-                comp_phase_elapsed = time.time() - comp_phase_start
-                print(f"[Rank {comm.rank}] Step {step}: Computation phase completed in {comp_phase_elapsed:.3f}s")
-            except Exception as e:
-                print(f"[Rank {comm.rank}] Step {step}: ERROR in computation phase: {e}")
-                raise
-        else:
-            print(f"[Rank {comm.rank}] Step {step}: Skipping computation (causal={causal}, step={step}, rank={comm.rank})")
+            block_out, block_lse = _flash_attn_forward(**params)
+            out, lse = update_out_and_lse(out, lse, block_out, block_lse)
 
         # Synchronization phase
         if step + 1 != comm.world_size:
-            sync_phase_start = time.time()
-            print(f"[Rank {comm.rank}] Step {step}: Starting synchronization phase")
-            
-            try:
-                print(f"[Rank {comm.rank}] Step {step}: Calling comm.commit()...")
-                comm.commit()
-                print(f"[Rank {comm.rank}] Step {step}: comm.commit() completed")
-                
-                print(f"[Rank {comm.rank}] Step {step}: Calling comm.wait()...")
-                comm.wait()
-                print(f"[Rank {comm.rank}] Step {step}: comm.wait() completed")
-                
-                k, v = next_k, next_v
-                print(f"[Rank {comm.rank}] Step {step}: Updated k and v for next iteration")
-                
-                sync_phase_elapsed = time.time() - sync_phase_start
-                print(f"[Rank {comm.rank}] Step {step}: Synchronization phase completed in {sync_phase_elapsed:.3f}s")
-            except Exception as e:
-                print(f"[Rank {comm.rank}] Step {step}: ERROR in synchronization phase: {e}")
-                raise
+            comm.commit()
+            comm.wait()
+            k, v = next_k, next_v
         
-        step_elapsed = time.time() - step_start
-        print(f"[Rank {comm.rank}] ===== Step {step} END - elapsed: {step_elapsed:.3f}s =====")
 
-    loop_elapsed = time.time() - loop_start
-    print(f"[Rank {comm.rank}] Main ring communication loop completed in {loop_elapsed:.3f}s")
-    
     # Final processing
-    finalize_start = time.time()
-    print(f"[Rank {comm.rank}] Finalizing output...")
     # Convert back to original dimension ordering: [batch, num_heads, seq_len, head_dim] -> [batch, seq_len, num_heads, head_dim]
     out = out.transpose(1, 2).to(q.dtype)
     lse = lse.squeeze(dim=-1).transpose(1, 2)
-    finalize_elapsed = time.time() - finalize_start
-    print(f"[Rank {comm.rank}] Output finalized in {finalize_elapsed:.3f}s")
-    
-    total_elapsed = time.time() - start_time
-    print(f"[Rank {rank}] ========== intel_ring_flash_attn_forward END - total elapsed: {total_elapsed:.3f}s ==========\n")
     
     return out, lse
 
