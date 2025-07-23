@@ -35,6 +35,13 @@ echo "Starting with mpiexec..."
 
 # For single node with 6 GPUs on Aurora
 # Use mpiexec with 6 processes, all on one node
-mpirun -n 2 python test_ring_debug_fixed.py 
+echo "Testing fixed implementation..."
+mpirun -n 2 python test_intel_ring_flash_attn.py 
 
-echo "Test completed."
+# Check exit code
+if [ $? -eq 0 ]; then
+    echo "✅ Test completed successfully!"
+else
+    echo "❌ Test failed!"
+    exit 1
+fi

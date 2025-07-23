@@ -17,10 +17,13 @@ Usage:
 
 import os
 import sys
+import socket
+import datetime
 import torch
 import torch.distributed as dist
 from contextlib import nullcontext
 import traceback
+from mpi4py import MPI
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -28,11 +31,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Check for Intel GPU support
 try:
     import intel_extension_for_pytorch as ipex
+    import oneccl_bindings_for_pytorch
     if not torch.xpu.is_available():
         print("Intel GPU not available, exiting")
         sys.exit(0)
-except ImportError:
-    print("Intel Extension for PyTorch not installed, exiting")
+except ImportError as e:
+    print(f"Required package not installed: {e}")
     sys.exit(0)
 
 # Import ring flash attention modules - Intel GPU backend automatically used
@@ -174,16 +178,41 @@ def test_distributed_ring_attention():
     print("="*60)
     
     try:
-        # Setup distributed environment
+        # Setup distributed environment with MPI
         if not dist.is_initialized():
-            print("[DEBUG] Initializing process group with backend='ccl'")
-            dist.init_process_group(backend='ccl')
-            print("[DEBUG] Process group initialized")
+            # MPI initialization
+            MPI.COMM_WORLD.Barrier()
+            
+            os.environ['RANK'] = str(os.environ.get('PMI_RANK', 0))
+            os.environ['WORLD_SIZE'] = str(os.environ.get('PMI_SIZE', 1))
+            mpi_world_size = MPI.COMM_WORLD.Get_size()
+            mpi_my_rank = MPI.COMM_WORLD.Get_rank()
+            
+            if mpi_my_rank == 0:
+                master_addr = socket.gethostname()
+                master_port = 2345  # Fixed port like in test_ring_debug_fixed.py
+            else:
+                master_addr = None
+                master_port = None
+            
+            master_addr = MPI.COMM_WORLD.bcast(master_addr, root=0)
+            master_port = MPI.COMM_WORLD.bcast(master_port, root=0)
+            os.environ["MASTER_ADDR"] = master_addr
+            os.environ["MASTER_PORT"] = str(master_port)
+            
+            MPI.COMM_WORLD.Barrier()
+            print(f"[Rank {mpi_my_rank}] Initializing process group with backend='ccl'")
+            dist.init_process_group(backend='ccl', init_method='env://', 
+                                  world_size=mpi_world_size, rank=mpi_my_rank, 
+                                  timeout=datetime.timedelta(seconds=3600))
+            MPI.COMM_WORLD.Barrier()
+            print(f"[Rank {mpi_my_rank}] Process group initialized")
         
         rank = dist.get_rank()
         world_size = dist.get_world_size()
-        device = torch.device('xpu' if hasattr(torch, 'xpu') and torch.xpu.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu')
-        launcher = 'manual'
+        # Use modulo for device selection to handle multi-GPU systems
+        device = torch.device(f'xpu:{rank % torch.xpu.device_count()}' if torch.xpu.is_available() else 'cpu')
+        launcher = 'mpi'
         backend = dist.get_backend()
         
         if world_size == 1:
@@ -285,18 +314,8 @@ def test_distributed_ring_attention():
         traceback.print_exc()
         return False
     
-    # Add timeout to barrier as well
-    try:
-        signal.signal(signal.SIGALRM, lambda s, f: None)  # Reset signal handler
-        signal.alarm(10)  # 10 second timeout for barrier
-        print(f"[Rank {rank}] Waiting at barrier...")
-        dist.barrier()
-        signal.alarm(0)
-        print(f"[Rank {rank}] Passed barrier")
-    except Exception as e:
-        signal.alarm(0)
-        print(f"[Rank {rank}] ⚠️  Barrier failed: {e}")
-        # Don't fail the test for barrier issues
+    # Skip barrier to avoid potential hangs
+    print(f"[Rank {rank}] Skipping final barrier to avoid potential hangs")
     
     if rank == 0:
         print("\n✅ Distributed ring attention test passed!")
@@ -316,12 +335,8 @@ def test_ring_attention_variants():
     rank = dist.get_rank()
     world_size = dist.get_world_size()
     
-    # Use device from distributed setup if available, otherwise fallback
-    try:
-        from ring_flash_attn import get_device_for_rank
-        device = get_device_for_rank()
-    except:
-        device = f'xpu:{rank}' if torch.xpu.device_count() > 1 else 'xpu'
+    # Use modulo for device selection
+    device = torch.device(f'xpu:{rank % torch.xpu.device_count()}' if torch.xpu.is_available() else 'cpu')
     
     dtype = torch.float16
     
@@ -455,6 +470,13 @@ def main():
     print("🚀 Intel GPU Ring Flash Attention Comprehensive Test Suite")
     print("="*80)
     print(f"[DEBUG] Script started at PID: {os.getpid()}")
+    
+    # Initialize MPI early if available
+    try:
+        MPI.COMM_WORLD.Barrier()
+        print(f"MPI initialized - rank {MPI.COMM_WORLD.Get_rank()}/{MPI.COMM_WORLD.Get_size()}")
+    except:
+        print("MPI not available, continuing without it")
     
     # Check Intel GPU availability
     if not torch.xpu.is_available():
