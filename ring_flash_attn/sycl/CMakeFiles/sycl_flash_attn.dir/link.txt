@@ -1,0 +1,1 @@
+/opt/aurora/24.347.0/oneapi/compiler/latest/bin/icpx -fPIC  -fsycl -fsycl-targets=spir64_gen -Xs "-device pvc" -O3 -DNDEBUG -O3 -DNDEBUG -march=native -ffast-math -shared -Wl,-soname,libsycl_flash_attn.so -o libsycl_flash_attn.so CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel.cpp.o CMakeFiles/sycl_flash_attn.dir/ring_flash_attn_kernel.cpp.o  -lsycl 

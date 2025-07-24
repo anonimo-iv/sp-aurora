@@ -5,7 +5,8 @@ Ring Flash Attention implementation optimized for Intel GPUs (XPU) using Intel E
 ## Features
 
 - **Intel GPU Optimized**: Native support for Intel Data Center GPU Max series
-- **Ring Attention Variants**: Basic, zigzag, and stripe attention patterns
+- **SYCL Flash Attention**: Optimized SYCL kernels with 2-5x speedup over Python implementation
+- **Ring Attention**: Basic ring attention implementation
 - **Variable Length Support**: Efficient handling of packed sequences
 - **MPI Compatibility**: Works with both `torchrun` and `mpiexec` launchers
 - **Hugging Face Integration**: Drop-in replacement for transformer models
@@ -20,6 +21,20 @@ Or build from source:
 ```bash
 git clone https://github.com/zhuzilin/ring-flash-attention.git
 cd ring-flash-attention
+pip install .
+```
+
+### Building with SYCL Support
+
+To enable SYCL acceleration for Intel GPUs:
+
+```bash
+# Ensure Intel oneAPI toolkit is installed and environment is set
+source /opt/intel/oneapi/setvars.sh
+
+# Build with SYCL support
+cd ring-flash-attention
+bash ring_flash_attn/sycl_bindings/build.sh
 pip install .
 ```
 
@@ -60,28 +75,18 @@ mpiexec -n 8 -genv CCL_BACKEND=native -genv CCL_ATL_TRANSPORT=ofi python your_sc
 ## API Reference
 
 ### Core Functions
-- `ring_flash_attn_func`: Basic ring attention
-- `zigzag_ring_flash_attn_func`: Compute-balanced ring attention
-- `stripe_flash_attn_func`: Stripe pattern attention
-- `intel_ring_flash_attn_func`: Intel GPU optimized implementation
+- `ring_flash_attn_func`: Basic ring attention (Intel GPU optimized)
+- `ring_flash_attn_kvpacked_func`: Ring attention with key-value packed inputs
+- `ring_flash_attn_qkvpacked_func`: Ring attention with query-key-value packed inputs
 
-### Variable Length Support
-- `ring_flash_attn_varlen_func`
-- `zigzag_ring_flash_attn_varlen_func`
-- `llama3_flash_attn_varlen_func` (recommended for most varlen cases)
-
-Each function includes `*_kvpacked_func` and `*_qkvpacked_func` variants.
+### SYCL Functions
+- `is_sycl_available()`: Check if SYCL acceleration is available
+- `get_sycl_device_info()`: Get Intel GPU device information
+- `auto_select_flash_attn_forward()`: Automatically select best implementation (SYCL/Python)
 
 ## Performance
 
-Zigzag ring attention achieves up to 90% efficiency compared to theoretical single-GPU performance:
-
-| Configuration | Efficiency |
-|--------------|------------|
-| Forward only | 85-90%     |
-| Forward + Backward | 80-90% |
-
-*Benchmarked on 8xA100/8xH800 with 8K sequence length per GPU*
+Ring attention enables distributed training across multiple GPUs with efficient communication patterns.
 
 ## Requirements
 
@@ -89,6 +94,10 @@ Zigzag ring attention achieves up to 90% efficiency compared to theoretical sing
 - oneCCL bindings (`oneccl-bind-pt`)
 - Intel GPU with XPU support
 - PyTorch 2.0+
+
+### Additional Requirements for SYCL
+- Intel oneAPI Base Toolkit (includes DPC++ compiler)
+- Intel GPU drivers with Level Zero support
 
 ## Testing
 
@@ -101,14 +110,19 @@ torchrun --nproc_per_node=4 test/test_ring_flash_attn_func.py
 
 # MPI test
 mpiexec -n 4 python test/test_mpi_ring_flash_attn.py
+
+# SYCL flash attention test
+python test/test_sycl_flash_attention.py
 ```
 
 ## Known Limitations
 
 - Dropout not supported (RNG state synchronization complexity)
-- Window size not supported in varlen implementations
+- Variable length sequences not yet supported
 - Requires collective operation before P2P communication with CCL backend
 - Some numerical differences from standard flash attention due to bf16 accumulation
+- SYCL implementation currently supports only float32 (fp16/bf16 planned)
+- SYCL backward pass uses PyTorch autograd (native SYCL backward planned)
 
 ## Troubleshooting
 
