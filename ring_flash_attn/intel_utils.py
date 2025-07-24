@@ -247,7 +247,6 @@ class IntelRingComm:
         next_v = self.send_recv(v, v_buffer)
         return next_k, next_v
 
-
 class IntelAllGatherComm:
     """Intel GPU compatible all-gather communication"""
     def __init__(self, group=None) -> None:

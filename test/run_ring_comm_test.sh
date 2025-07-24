@@ -49,6 +49,6 @@ echo "Environment variables set for Intel GPU"
 echo "Running ring communication test..."
 
 # Run the test with explicit master address and port
-torchrun --nproc_per_node=2 --nnodes=1 --node_rank=0 --master_addr="127.0.0.1" --master_port=29500 test_ring_comm_simple.py
+torchrun --nproc_per_node=2 --nnodes=1 --node_rank=0 --master_addr="127.0.0.1" --master_port=29500 test_ring_comm_mpi.py
 
 echo "Test completed."

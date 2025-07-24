@@ -38,6 +38,6 @@ echo "Environment variables set for Intel GPU"
 echo "Running fixed ring debug test..."
 
 # Run with timeout
-timeout 120s torchrun --nproc_per_node=2 --nnodes=1 --node_rank=0 --master_addr="127.0.0.1" --master_port=29500 test_ring_debug_fixed.py
+timeout 120s torchrun --nproc_per_node=2 --nnodes=1 --node_rank=0 --master_addr="127.0.0.1" --master_port=29500 test_intel_gpu_fixed.py
 
 echo "Test completed."
