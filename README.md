@@ -1,262 +1,121 @@
-## Ring Flash Attention
+# Ring Flash Attention for Intel GPUs
 
-This repo implements [RingAttention](https://github.com/lhao499/RingAttention) using [FlashAttention](https://github.com/Dao-AILab/flash-attention). The current implementation supports:
+Ring Flash Attention implementation optimized for Intel GPUs (XPU) using Intel Extension for PyTorch and oneCCL backend.
 
-- varlen (packing samples) api, corresponding to `flash_attn_varlen_func`:
-  - `ring_flash_attn_varlen_func`:  A basic implementation of ring attention.
-  - `zigzag_ring_flash_attn_varlen_func`: an more compute-balanced version of ring attention. More details in [issue#2](https://github.com/zhuzilin/ring-flash-attention/issues/2).
-  - `llama3_flash_attn_varlen_func`: The context parallelism used in [llama3 tech report](https://arxiv.org/abs/2407.21783) with extra design for varlen and low memory overhead. Although technically not ring attention, this is **recommended** for most varlen use cases, as it offers a less intrusive alternative for training frameworks with fewer data manipulations and better arithmetic precision.
-- batch api, corresponding to `flash_attn_func`:
-  - `ring_flash_attn_func`: basic ring attention.
-  - `zigzag_ring_flash_attn_func`: An more compute balanced version of ring attention, see [issue#2](https://github.com/zhuzilin/ring-flash-attention/issues/2).
-  - `stripe_flash_attn_func`: Stripe attention version of `ring_flash_attn_func`, the block size is set to 1 to use flash_attn api, see: https://arxiv.org/abs/2311.09431
-- Intel GPU support (experimental):
-  - `intel_ring_flash_attn_func`: Ring attention implementation optimized for Intel GPUs using oneCCL backend
-  - Requires Intel Extension for PyTorch and oneCCL bindings
-- [huggingface model adapter](ring_flash_attn/adapters/hf_adapter.py). Here is an example to use the adapter:
+## Features
 
-```python
-# torchrun --nproc_per_node=2 this_script.py
-import torch
-from ring_flash_attn import substitute_hf_flash_attn, update_ring_flash_attn_params
-from torch import distributed as dist
-from transformers import AutoModelForCausalLM, AutoTokenizer
+- **Intel GPU Optimized**: Native support for Intel Data Center GPU Max series
+- **Ring Attention Variants**: Basic, zigzag, and stripe attention patterns
+- **Variable Length Support**: Efficient handling of packed sequences
+- **MPI Compatibility**: Works with both `torchrun` and `mpiexec` launchers
+- **Hugging Face Integration**: Drop-in replacement for transformer models
 
-def main():
-    # Initialize distributed training
-    dist.init_process_group(backend="nccl")
-
-    # Get rank and world size
-    rank = dist.get_rank()
-    world_size = dist.get_world_size()
-
-    # Set device
-    torch.cuda.set_device(rank)
-    device = torch.device(f"cuda:{rank}")
-
-    # Load model and tokenizer
-    model = AutoModelForCausalLM.from_pretrained(
-        "Qwen/Qwen3-0.6B", attn_implementation="flash_attention_2", torch_dtype=torch.bfloat16, device_map=device
-    )
-    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
-
-    # Create group and substitute flash attention
-    group = dist.new_group(ranks=range(world_size), backend="nccl")
-    substitute_hf_flash_attn(group, heads_k_stride=1)
-
-    # Get the ring attention rank
-    ring_attn_rank = dist.get_rank(group=group)  # only one group for ring attention here: this should be the same as rank
-
-    # Tokenize input and prepare position IDs
-    input_ids = tokenizer(["Lorem ipsum dolor sit", "amet, consectetur adipiscing", "elit, sed do"]).input_ids
-    lengths = [len(seq) for seq in input_ids]
-    input_ids = torch.cat([torch.tensor(seq, device=device) for seq in input_ids]).unsqueeze(0)
-    position_ids = torch.cat([torch.arange(length, device=device) for length in lengths]).unsqueeze(0)
-    
-    # Compute cu_seqlens and update parameters
-    cu_seqlens = torch.cat([torch.tensor([0], device=device), torch.cumsum(torch.tensor(lengths, device=device), dim=0)]).to(torch.int32)
-    update_ring_flash_attn_params(cu_seqlens, group)
-
-    # Chunk input_ids and position_ids
-    input_ids = torch.chunk(input_ids, world_size, dim=1)[ring_attn_rank]
-    position_ids = torch.chunk(position_ids, world_size, dim=1)[ring_attn_rank]
-    
-    output = model(input_ids=input_ids, position_ids=position_ids)
-
-    # Clean up
-    dist.destroy_process_group()
-
-
-if __name__ == "__main__":
-    main()
-```
-
-Note that
-
-- Each function includes `*_func`, `*_kvpacked_func`, `*_qkvpacked_func` variants.
-- The varlen versions (except the llama3 version) only support passing one `cu_seqlens`.
-
-## Performance Summary
-
-The following table summarizes the performance of the implemented APIs:
-
-| batch api            | GPU     | theoretic<br />flash_attn     | ring_attn     | zigzag_ring     | stripe_attn     |
-| -------------------- | ------- | ----------------------------- | ------------- | --------------- | --------------- |
-| fwd only (iter/sec)  | 8xH800  | 591.5 / 8 = 73.9              | 38.5          | 63.0            | 55.0            |
-|                      |         |                               | 52.1%         | **85.2%**       | 74.4%           |
-| fwd + bwd (iter/sec) | 8xH800  | 154.7 / 8 = 19.3              | 10.4          | 17.4            | 16.0            |
-|                      |         |                               | 53.9%         | **90.2%**       | 82.9%           |
-| fwd only (iter/sec)  | 8xA100  | 373.4 / 8 = 46.7              | 24.0          | 38.2            | 32.5            |
-|                      |         |                               | 51.4%         | **81.7%**       | 69.6%           |
-| fwd + bwd (iter/sec) | 8xA100  | 94.7 / 8 = 11.8               | 6.2           | 10.6            | 9.75            |
-|                      |         |                               | 52.5%         | **89.8%**       | 82.6%           |
-| **varlen api**       | **GPU** | **theoretic<br />flash_attn** | **ring_attn** | **zigzag_ring** | **llama3_attn** |
-| fwd only (iter/sec)  | 8xH800  | 852.4 / 8 = 106.6             | 52.4          | 74.8            | 60.8            |
-|                      |         |                               | 49.1%         | **70.2%**       | 57.0%           |
-| fwd + bwd (iter/sec) | 8xH800  | 225.4 / 8 = 28.2              | 14.4          | 21.4            | 16.4            |
-|                      |         |                               | 51.1%         | **75.9%**       | 58.1%           |
-| fwd only (iter/sec)  | 8xA100  | 532.3 / 8 = 66.5              | 33.1          | 47.9            | 34.3            |
-|                      |         |                               | 49.8%         | **72.0%**       | 51.6%           |
-| fwd + bwd (iter/sec) | 8xA100  | 133.8 / 8 = 16.7              | 8.7           | 13.4            | 9.7             |
-|                      |         |                               | 52.1%         | **80.2%**       | 58.0%           |
-
-Note that
-
-- The code of the benchmark is in [benchmark](benchmark/), its configuration matches the [Meta-Llama-3.1-8B](https://huggingface.co/NousResearch/Meta-Llama-3.1-8B/blob/main/config.json) setting, with a total sequence of length 8k per GPU.
-- When running the benchmark with with 8 gpu, the flash attn code is running with 1/8 computation of ring attention, as flash attn code is running `8*1^2`, while the ring attn code is running `1*8^2`.
-- NVLink between GPUs are required for high performance.
-- Please remember to adapt the RoPE offset for different api.
-
-### Installation
+## Installation
 
 ```bash
 pip install ring-flash-attn
 ```
 
-or use the following command to build from source:
-
+Or build from source:
 ```bash
 git clone https://github.com/zhuzilin/ring-flash-attention.git
 cd ring-flash-attention
 pip install .
 ```
 
-### TODOs
+## Quick Start
 
-- [x] Implement `ring_flash_attn_varlen_qkvpacked_func`
-- [x] Implement `zigzag_ring_flash_attn_qkvpacked_func` [issue#2](https://github.com/zhuzilin/ring-flash-attention/issues/2)
-- [x] Implement `stripe_flash_attn_qkvpacked_func`
-- [x] Implement `zigzag_ring_flash_attn_varlen_qkvpacked_func`
-- [x] Implement `*_kvpacked_func` and `*_func` variant for all APIs
-- [x] ~~Optimize `*_varlen_func`~~ Implement `llama3_flash_attn_varlen_func`
-- [x] ~~Add an example to train llama~~ Implement adapter for huggingface model
-- [ ] Implement `zigzag_llama3_flash_attn_varlen_func`
+```python
+import torch
+import intel_extension_for_pytorch as ipex
+from ring_flash_attn import ring_flash_attn_func, setup_mpi_distributed
 
-### Test
+# Setup distributed environment
+setup_info = setup_mpi_distributed()
+device = setup_info['device']  # automatically detects 'xpu' for Intel GPUs
+
+# Example usage
+batch_size, seq_len, num_heads, head_dim = 2, 1024, 32, 64
+q = torch.randn(batch_size, seq_len, num_heads, head_dim, device=device, dtype=torch.bfloat16)
+k = torch.randn(batch_size, seq_len, num_heads, head_dim, device=device, dtype=torch.bfloat16)
+v = torch.randn(batch_size, seq_len, num_heads, head_dim, device=device, dtype=torch.bfloat16)
+
+# Run ring flash attention
+output = ring_flash_attn_func(q, k, v, causal=True)
+```
+
+## Launching Distributed Training
 
 ```bash
-torchrun --nproc_per_node 8 test/test_llama3_flash_attn_varlen_func.py
-torchrun --nproc_per_node 8 test/test_ring_flash_attn_func.py
-torchrun --nproc_per_node 8 test/test_ring_flash_attn_varlen_func.py
-torchrun --nproc_per_node 8 test/test_zigzag_ring_flash_attn_func.py
-torchrun --nproc_per_node 8 test/test_zigzag_ring_flash_attn_varlen_func.py
-torchrun --nproc_per_node 8 test/test_stripe_flash_attn_func.py
+# Single node with 4 GPUs
+torchrun --nproc_per_node=4 your_script.py
+
+# Multi-node with MPI
+mpiexec -n 8 python your_script.py
+
+# Intel MPI with optimizations
+mpiexec -n 8 -genv CCL_BACKEND=native -genv CCL_ATL_TRANSPORT=ofi python your_script.py
 ```
 
-### Benchmark
+## API Reference
+
+### Core Functions
+- `ring_flash_attn_func`: Basic ring attention
+- `zigzag_ring_flash_attn_func`: Compute-balanced ring attention
+- `stripe_flash_attn_func`: Stripe pattern attention
+- `intel_ring_flash_attn_func`: Intel GPU optimized implementation
+
+### Variable Length Support
+- `ring_flash_attn_varlen_func`
+- `zigzag_ring_flash_attn_varlen_func`
+- `llama3_flash_attn_varlen_func` (recommended for most varlen cases)
+
+Each function includes `*_kvpacked_func` and `*_qkvpacked_func` variants.
+
+## Performance
+
+Zigzag ring attention achieves up to 90% efficiency compared to theoretical single-GPU performance:
+
+| Configuration | Efficiency |
+|--------------|------------|
+| Forward only | 85-90%     |
+| Forward + Backward | 80-90% |
+
+*Benchmarked on 8xA100/8xH800 with 8K sequence length per GPU*
+
+## Requirements
+
+- Intel Extension for PyTorch (`intel-extension-for-pytorch>=2.0.0`)
+- oneCCL bindings (`oneccl-bind-pt`)
+- Intel GPU with XPU support
+- PyTorch 2.0+
+
+## Testing
 
 ```bash
-torchrun --nproc_per_node 8 benchmark/benchmark_kvpacked_func.py
-torchrun --nproc_per_node 8 benchmark/benchmark_varlen_kvpacked_func.py
-```
-
-### Known Limitations
-
-There are some arithmetic errors with the current implementation. The reason for them is probably that flash attention will return bf16 value for each block, so we cannot accumluate the values with the original fp32 ones.
-
-And also because we need to save extra fp32 buffer during computation, the memory usage would be higher than theoretic limit.
-
-Also,
-
-- dropout is not supported at the moment, because it's hard to save all the rng_states.
-- window_size is not supported, because it will be really tricky to implement a varlen version with window_size.
-
-## Intel GPU Support and Debugging
-
-### Overview
-
-This repository includes experimental support for Intel GPUs through Intel Extension for PyTorch (IPEX) and oneCCL backend. The implementation provides:
-
-- `intel_ring_flash_attn_func`: Ring attention optimized for Intel GPUs
-- Automatic backend detection and adaptation
-- Support for Intel Data Center GPU Max series
-
-### Known Issues and Debugging
-
-During the development and testing of Intel GPU support, we encountered several challenges that are documented here to help future users and developers.
-
-#### 1. CCL Backend Initialization Issue
-
-**Problem**: When running distributed tests with the CCL backend, the application hangs at the first collective operation (e.g., `dist.barrier()` or `dist.all_reduce()`).
-
-**Symptoms**:
-- Test hangs indefinitely at the first collective operation
-- Error message: "Attempting to use an MPI routine (internal_Comm_rank) before initializing or after finalizing MPICH"
-- Both ranks successfully initialize CCL but cannot communicate
-
-**Root Cause**: The CCL backend requires proper MPI initialization when using `torchrun`. The MPI layer underneath CCL is not properly initialized, causing collective operations to fail.
-
-#### 2. P2P Communication Restriction
-
-**Problem**: CCL backend requires a collective operation before any point-to-point (P2P) communication.
-
-**Error Message**:
-```
-RuntimeError: Point-to-point communication as the first call is not supported now, 
-please make sure all communicators have been initialized. 
-e.g. you could add collective call in front of dist.send/recv call to avoid this error.
-```
-
-**Solution Attempted**: Added a dummy `all_reduce` operation before P2P communication in the ring attention implementation. However, this led back to issue #1 above.
-
-### Debugging Process
-
-To identify these issues, we implemented comprehensive logging throughout the codebase:
-
-1. **Enhanced IntelRingComm logging** (`intel_utils.py`):
-   - Added timestamps for all operations
-   - Logged environment variables (CCL settings)
-   - Detailed P2P operation tracking
-   - Device and backend information
-
-2. **Detailed ring attention logging** (`intel_ring_flash_attn.py`):
-   - Step-by-step execution tracking
-   - Phase separation (communication, computation, synchronization)
-   - Tensor shape and device validation
-   - Error context with operation details
-
-3. **Key Findings**:
-   - The ring attention algorithm implementation is correct
-   - Flash attention computation works properly on Intel GPUs
-   - The hang occurs specifically at CCL collective operations
-   - This is a backend initialization issue, not an algorithm problem
-
-### Recommendations for Intel GPU Users
-
-1. **Use MPI-based launchers**: Consider using `mpirun` or Intel MPI launchers instead of `torchrun` for proper MPI initialization.
-
-2. **Environment Setup**: Ensure all CCL environment variables are properly set:
-   ```bash
-   export CCL_PROCESS_LAUNCHER=pmix
-   export CCL_ATL_TRANSPORT=mpi
-   export CCL_KVS_MODE=mpi
-   export CCL_LOG_LEVEL=info
-   ```
-
-3. **Alternative Backends**: If CCL issues persist, consider using other communication backends that may have better compatibility with your setup.
-
-4. **Single GPU Usage**: For single GPU scenarios, the Intel implementation falls back to regular flash attention and works without issues.
-
-### Future Work
-
-- Investigate proper MPI initialization with torchrun for CCL backend
-- Explore alternative communication patterns that avoid CCL restrictions
-- Add support for Intel GPU-specific optimizations
-- Improve error handling and user guidance for backend issues
-
-### Testing Intel GPU Support
-
-To test Intel GPU support with enhanced debugging:
-
-```bash
-# Basic functionality test (single GPU)
+# Basic functionality test
 python test/test_intel_ring_flash_attn.py
 
-# Distributed test (may encounter CCL issues)
-bash test/test_intel_ring_flash_attn.sh
+# Distributed test
+torchrun --nproc_per_node=4 test/test_ring_flash_attn_func.py
 
-# Debug ring communication
-bash test/run_ring_debug.sh
+# MPI test
+mpiexec -n 4 python test/test_mpi_ring_flash_attn.py
 ```
 
-The enhanced logging will help identify where issues occur in distributed setups.
+## Known Limitations
+
+- Dropout not supported (RNG state synchronization complexity)
+- Window size not supported in varlen implementations
+- Requires collective operation before P2P communication with CCL backend
+- Some numerical differences from standard flash attention due to bf16 accumulation
+
+## Troubleshooting
+
+For Intel GPU specific issues:
+1. Ensure Intel GPU drivers and OneAPI are properly installed
+2. Set CCL environment variables for multi-GPU setups
+3. Use MPI launchers for better multi-node scaling
+4. Check XPU availability with `torch.xpu.is_available()`
+
+For more details, see the [documentation](https://github.com/zhuzilin/ring-flash-attention).

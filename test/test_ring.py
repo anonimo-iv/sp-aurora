@@ -5,16 +5,16 @@ Each test can be run independently by commenting out others or using TEST_ONLY e
 
 Usage:
     # Run all tests
-    mpiexec -n 2 python test_ring_components_isolation.py
+    mpiexec -n 2 python test_ring.py
     
     # Run specific test only
-    TEST_ONLY=test_communication_primitives mpiexec -n 2 python test_ring_components_isolation.py
+    TEST_ONLY=test_communication_primitives mpiexec -n 2 python test_ring.py
     
     # Enable debug mode
-    DEBUG=1 mpiexec -n 2 python test_ring_components_isolation.py
+    DEBUG=1 mpiexec -n 2 python test_ring.py
     
     # Skip certain tests
-    SKIP_TESTS=test_full_ring_attention,test_ring_backward_only mpiexec -n 2 python test_ring_components_isolation.py
+    SKIP_TESTS=test_full_ring_attention,test_ring_backward_only mpiexec -n 2 python test_ring.py
 """
 
 import os

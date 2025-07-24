@@ -37,7 +37,9 @@ echo "Starting with mpirun (mpiexec has MPI initialization issues)..."
 # For single node with 6 GPUs on Aurora
 # Use mpirun with 2 processes for testing
 echo "Testing fixed implementation..."
-SKIP_TESTS=test_full_ring_attention mpirun -n 2 python test_ring.py
+# SKIP_TESTS=test_full_ring_attention 
+# mpirun -n 4 python test_ring.py
+SKIP_TESTS=test_full_ring_attention  mpirun -n 4 python test_ring.py
 
 # Check exit code
 if [ $? -eq 0 ]; then
