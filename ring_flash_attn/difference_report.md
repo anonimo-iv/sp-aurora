@@ -78,7 +78,7 @@ class IntelRingComm:
 - **intel_utils.py**: Explicit XPU tensor conversion with `_ensure_xpu_tensor()` method
 
 #### 3.3 Operation Lifecycle
-- **utils.py**: Two-phase: accumulate operations ’ batch commit
+- **utils.py**: Two-phase: accumulate operations ï¿½ batch commit
 - **intel_utils.py**: Immediate operation start, with `commit()` as no-op
 
 #### 3.4 Backend Initialization

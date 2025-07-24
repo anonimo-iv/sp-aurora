@@ -1,0 +1,6 @@
+# Mark C++ files as detectable
+*.cpp linguist-detectable=true
+*.hpp linguist-detectable=true
+*.h linguist-detectable=true
+*.cc linguist-detectable=true
+
