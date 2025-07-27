@@ -1,8 +1,0 @@
-/home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl/CMakeFiles/sycl_flash_attn.dir
-/home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl/CMakeFiles/sycl_flash_attn_py.dir
-/home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl/CMakeFiles/edit_cache.dir
-/home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl/CMakeFiles/rebuild_cache.dir
-/home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl/CMakeFiles/list_install_components.dir
-/home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl/CMakeFiles/install.dir
-/home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl/CMakeFiles/install/local.dir
-/home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl/CMakeFiles/install/strip.dir
