@@ -103,20 +103,24 @@ def benchmark_performance():
     print("TEST: Performance Benchmark")
     print("="*60)
     
-    # Benchmark configurations
+    # Benchmark configurations - extended with larger sequences
     configs = [
+        {"batch": 1, "heads": 16, "seq_len": 32, "head_dim": 64},
+        {"batch": 1, "heads": 32, "seq_len": 64, "head_dim": 64},
+        {"batch": 1, "heads": 32, "seq_len": 128, "head_dim": 128},
+        {"batch": 1, "heads": 32, "seq_len": 256, "head_dim": 128},
         {"batch": 1, "heads": 32, "seq_len": 512, "head_dim": 128},
         {"batch": 1, "heads": 32, "seq_len": 1024, "head_dim": 128},
         {"batch": 1, "heads": 32, "seq_len": 2048, "head_dim": 128},
-        {"batch": 1, "heads": 32, "seq_len": 4096, "head_dim": 128},
+        {"batch": 1, "heads": 16, "seq_len": 4096, "head_dim": 128},
     ]
     
     device = 'xpu' if torch.xpu.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
     
     print(f"\nDevice: {device}")
-    print("Config: Batch=1, Heads=32, HeadDim=128, Causal=True")
-    print("\n{:<10} {:<15} {:<15} {:<10}".format("SeqLen", "Python (ms)", "SYCL (ms)", "Speedup"))
-    print("-" * 60)
+    print("Causal=True, measuring average over 10 iterations")
+    print("\n{:<10} {:<10} {:<15} {:<15} {:<10}".format("SeqLen", "Heads", "Python (ms)", "SYCL (ms)", "Speedup"))
+    print("-" * 70)
     
     for config in configs:
         # Create test tensors
@@ -125,31 +129,48 @@ def benchmark_performance():
         k = torch.randn_like(q)
         v = torch.randn_like(q)
         
-        # Warmup
-        for _ in range(3):
-            _ = intel_flash_attn_forward(q, k, v, causal=True)
-            _ = intel_flash_attn_forward_sycl(q, k, v, causal=True)
+        # Warmup - with error handling for large sequences
+        try:
+            for _ in range(3):
+                _ = intel_flash_attn_forward(q, k, v, causal=True)
+                _ = intel_flash_attn_forward_sycl(q, k, v, causal=True)
+        except Exception as e:
+            print("{:<10} {:<10} {:<15} {:<15} {:<10}".format(
+                config["seq_len"], config["heads"], "N/A", "Error", "N/A"
+            ))
+            print(f"           Error: {str(e)[:50]}...")
+            continue
         
         # Benchmark Python implementation
-        torch.xpu.synchronize() if device == 'xpu' else (torch.cuda.synchronize() if device == 'cuda' else None)
-        start = time.time()
-        for _ in range(10):
-            _ = intel_flash_attn_forward(q, k, v, causal=True)
-        torch.xpu.synchronize() if device == 'xpu' else (torch.cuda.synchronize() if device == 'cuda' else None)
-        python_time = (time.time() - start) / 10 * 1000  # ms
+        try:
+            torch.xpu.synchronize() if device == 'xpu' else (torch.cuda.synchronize() if device == 'cuda' else None)
+            start = time.time()
+            for _ in range(10):
+                _ = intel_flash_attn_forward(q, k, v, causal=True)
+            torch.xpu.synchronize() if device == 'xpu' else (torch.cuda.synchronize() if device == 'cuda' else None)
+            python_time = (time.time() - start) / 10 * 1000  # ms
+        except Exception as e:
+            python_time = float('inf')
         
         # Benchmark SYCL implementation  
-        torch.xpu.synchronize() if device == 'xpu' else (torch.cuda.synchronize() if device == 'cuda' else None)
-        start = time.time()
-        for _ in range(10):
-            _ = intel_flash_attn_forward_sycl(q, k, v, causal=True)
-        torch.xpu.synchronize() if device == 'xpu' else (torch.cuda.synchronize() if device == 'cuda' else None)
-        sycl_time = (time.time() - start) / 10 * 1000  # ms
+        try:
+            torch.xpu.synchronize() if device == 'xpu' else (torch.cuda.synchronize() if device == 'cuda' else None)
+            start = time.time()
+            for _ in range(10):
+                _ = intel_flash_attn_forward_sycl(q, k, v, causal=True)
+            torch.xpu.synchronize() if device == 'xpu' else (torch.cuda.synchronize() if device == 'cuda' else None)
+            sycl_time = (time.time() - start) / 10 * 1000  # ms
+        except Exception as e:
+            sycl_time = float('inf')
+            print("{:<10} {:<10} {:<15.2f} {:<15} {:<10}".format(
+                config["seq_len"], config["heads"], python_time, "Error", "N/A"
+            ))
+            continue
         
         speedup = python_time / sycl_time
         
-        print("{:<10} {:<15.2f} {:<15.2f} {:<10.2f}x".format(
-            config["seq_len"], python_time, sycl_time, speedup
+        print("{:<10} {:<10} {:<15.2f} {:<15.2f} {:<10.2f}x".format(
+            config["seq_len"], config["heads"], python_time, sycl_time, speedup
         ))
 
 

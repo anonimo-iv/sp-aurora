@@ -28,7 +28,7 @@ CMAKE_BUILD_TYPE:STRING=Release
 CMAKE_COLOR_MAKEFILE:BOOL=ON
 
 //CXX compiler
-CMAKE_CXX_COMPILER:STRING=/opt/aurora/24.347.0/oneapi/compiler/latest/bin/icpx
+CMAKE_CXX_COMPILER:FILEPATH=/opt/aurora/24.347.0/oneapi/compiler/latest/bin/icpx
 
 //LLVM archiver
 CMAKE_CXX_COMPILER_AR:FILEPATH=CMAKE_CXX_COMPILER_AR-NOTFOUND
@@ -258,9 +258,6 @@ PKG_CONFIG_ARGN:STRING=
 
 //pkg-config executable
 PKG_CONFIG_EXECUTABLE:FILEPATH=/usr/bin/pkg-config
-
-//No help, variable specified on the command line.
-PYTHON_EXECUTABLE:UNINITIALIZED=/lus/flare/projects/hp-ptycho/binkma/venv/infer/bin/python3
 
 //Path to a file.
 SYCL_INCLUDE_DIR:FILEPATH=/opt/aurora/24.347.0/oneapi/compiler/2025.0/include
@@ -530,6 +527,8 @@ _Python_INCLUDE_DIR:INTERNAL=/opt/aurora/24.347.0/frameworks/aurora_nre_models_f
 //Python Properties
 _Python_INTERPRETER_PROPERTIES:INTERNAL=Python;3;10;14;64;;cpython-310-x86_64-linux-gnu;abi3;/opt/aurora/24.347.0/frameworks/aurora_nre_models_frameworks-2025.0.0/lib/python3.10;/lus/flare/projects/hp-ptycho/binkma/venv/infer/lib/python3.10;/lus/flare/projects/hp-ptycho/binkma/venv/infer/lib/python3.10/site-packages;/lus/flare/projects/hp-ptycho/binkma/venv/infer/lib/python3.10/site-packages
 _Python_INTERPRETER_SIGNATURE:INTERNAL=07adf909c4652525c66ef8f4b1e452d2
+//Interpreter reason failure
+_Python_Interpreter_REASON_FAILURE:INTERNAL=
 //Path to a library.
 _Python_LIBRARY_RELEASE:INTERNAL=/opt/aurora/24.347.0/frameworks/aurora_nre_models_frameworks-2025.0.0/lib/libpython3.10.so
 //NumPy reason failure

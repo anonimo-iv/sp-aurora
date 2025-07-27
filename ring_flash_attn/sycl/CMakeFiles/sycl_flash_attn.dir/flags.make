@@ -6,5 +6,5 @@ CXX_DEFINES = -Dsycl_flash_attn_EXPORTS
 
 CXX_INCLUDES = -I/home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl -I/lus/flare/projects/hp-ptycho/binkma/venv/infer/lib/python3.10/site-packages/torch/include -I/lus/flare/projects/hp-ptycho/binkma/venv/infer/lib/python3.10/site-packages/torch/include/torch/csrc/api/include
 
-CXX_FLAGS =  -fsycl -fsycl-targets=spir64_gen -Xs "-device pvc" -O3 -DNDEBUG -O3 -DNDEBUG -march=native -ffast-math -std=gnu++17 -fPIC -fPIC
+CXX_FLAGS =  -fsycl -fsycl-targets=spir64_gen -Xs "-device pvc" -O3 -DNDEBUG -O3 -DNDEBUG -march=native -fno-finite-math-only -ftree-vectorize -funroll-loops -finline-functions -fsycl-force-inline-kernel-lambda -fsycl-id-queries-fit-in-int -std=gnu++17 -fPIC -fPIC
 

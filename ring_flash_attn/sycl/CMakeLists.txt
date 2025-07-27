@@ -16,7 +16,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xs \"-device pvc\"")  # For Intel Data 
 # Optimization flags
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -ffast-math")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-finite-math-only")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -ftree-vectorize")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -funroll-loops")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -finline-functions")
+# Intel GPU specific optimizations
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fsycl-force-inline-kernel-lambda")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fsycl-id-queries-fit-in-int")
 
 # Include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
@@ -48,7 +54,14 @@ find_library(TORCH_PYTHON_LIBRARY torch_python PATHS ${TORCH_INSTALL_PREFIX}/lib
 
 # SYCL Flash Attention library
 add_library(sycl_flash_attn SHARED
-    flash_attn_kernel.cpp
+    utils.cpp
+    flash_attn_kernel_optimized_v3.cpp
+    flash_attn_kernel_optimized_v3_fixed.cpp
+    flash_attn_kernel_optimized_v4.cpp
+    flash_attn_kernel_optimized_v5.cpp
+    flash_attn_kernel_optimized_v7.cpp
+    flash_attn_kernel_optimized_v8.cpp
+    flash_attn_kernel_xmx_simple.cpp
     ring_flash_attn_kernel.cpp
 )
 

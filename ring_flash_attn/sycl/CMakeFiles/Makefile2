@@ -83,12 +83,12 @@ clean: CMakeFiles/sycl_flash_attn_py.dir/clean
 CMakeFiles/sycl_flash_attn.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl/CMakeFiles --progress-num=1,2,3 "Built target sycl_flash_attn"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl/CMakeFiles --progress-num=1,2,3,4,5,6,7,8,9,10 "Built target sycl_flash_attn"
 .PHONY : CMakeFiles/sycl_flash_attn.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/sycl_flash_attn.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl/CMakeFiles 3
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl/CMakeFiles 10
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/sycl_flash_attn.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl/CMakeFiles 0
 .PHONY : CMakeFiles/sycl_flash_attn.dir/rule
@@ -109,12 +109,12 @@ CMakeFiles/sycl_flash_attn.dir/clean:
 CMakeFiles/sycl_flash_attn_py.dir/all: CMakeFiles/sycl_flash_attn.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn_py.dir/build.make CMakeFiles/sycl_flash_attn_py.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn_py.dir/build.make CMakeFiles/sycl_flash_attn_py.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl/CMakeFiles --progress-num=4,5 "Built target sycl_flash_attn_py"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl/CMakeFiles --progress-num=11,12 "Built target sycl_flash_attn_py"
 .PHONY : CMakeFiles/sycl_flash_attn_py.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/sycl_flash_attn_py.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl/CMakeFiles 5
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl/CMakeFiles 12
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/sycl_flash_attn_py.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl/CMakeFiles 0
 .PHONY : CMakeFiles/sycl_flash_attn_py.dir/rule

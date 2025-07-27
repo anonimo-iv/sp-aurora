@@ -32,7 +32,18 @@ void init_sycl_queue() {
     }
 }
 
-// Python-exposed forward function
+// Enum for kernel selection
+enum class KernelType {
+    AUTO = 0,
+    OPTIMIZED_V3 = 2,
+    XMX = 4,
+    OPTIMIZED_V4 = 5,
+    OPTIMIZED_V5 = 6,
+    OPTIMIZED_V7 = 7,
+    OPTIMIZED_V8 = 8
+};
+
+// Python-exposed forward function with kernel selection
 std::tuple<torch::Tensor, torch::Tensor> flash_attn_forward_py(
     torch::Tensor query,    // [batch, num_heads, seq_len_q, head_dim]
     torch::Tensor key,      // [batch, num_heads, seq_len_k, head_dim]
@@ -41,7 +52,8 @@ std::tuple<torch::Tensor, torch::Tensor> flash_attn_forward_py(
     float softmax_scale,
     bool is_causal,
     int window_size_left,
-    int window_size_right
+    int window_size_right,
+    int kernel_type = 0  // Default to AUTO
 ) {
     // Validate inputs
     TORCH_CHECK(query.dim() == 4, "Query must be 4D tensor");
@@ -89,14 +101,105 @@ std::tuple<torch::Tensor, torch::Tensor> flash_attn_forward_py(
         64   // block_size_k
     };
     
-    // Call SYCL kernel
-    FlashAttnOutput output = flash_attn_forward_sycl(
-        *global_queue,
-        tensor_ptr<float>(query),
-        tensor_ptr<float>(key),
-        tensor_ptr<float>(value),
-        config
-    );
+    // Dynamic algorithm selection based on sequence length and Intel GPU capabilities
+    FlashAttnOutput output;
+    
+    // Check if Intel Max GPU (has XMX support)
+    bool has_xmx = global_queue->get_device().has(sycl::aspect::ext_intel_matrix);
+    
+    KernelType selected_kernel = static_cast<KernelType>(kernel_type);
+    
+    // Manual kernel selection or auto selection
+    if (selected_kernel == KernelType::AUTO) {
+        // Auto selection - use V8 for best performance
+        selected_kernel = KernelType::OPTIMIZED_V8;
+    }
+    
+    // Execute selected kernel
+    switch (selected_kernel) {
+        case KernelType::OPTIMIZED_V3:
+            output = flash_attn_forward_optimized_v3_sycl(
+                *global_queue,
+                tensor_ptr<float>(query),
+                tensor_ptr<float>(key),
+                tensor_ptr<float>(value),
+                config
+            );
+            break;
+            
+        case KernelType::XMX:
+            if (!has_xmx) {
+                std::cerr << "Warning: XMX kernel requested but not supported on this device. "
+                          << "Falling back to optimized V3." << std::endl;
+                output = flash_attn_forward_optimized_v3_sycl(
+                    *global_queue,
+                    tensor_ptr<float>(query),
+                    tensor_ptr<float>(key),
+                    tensor_ptr<float>(value),
+                    config
+                );
+            } else {
+                output = flash_attn_forward_xmx_sycl(
+                    *global_queue,
+                    tensor_ptr<float>(query),
+                    tensor_ptr<float>(key),
+                    tensor_ptr<float>(value),
+                    config
+                );
+            }
+            break;
+            
+        case KernelType::OPTIMIZED_V4:
+            output = flash_attn_forward_optimized_v4_sycl(
+                *global_queue,
+                tensor_ptr<float>(query),
+                tensor_ptr<float>(key),
+                tensor_ptr<float>(value),
+                config
+            );
+            break;
+            
+        case KernelType::OPTIMIZED_V5:
+            output = flash_attn_forward_optimized_v5_sycl(
+                *global_queue,
+                tensor_ptr<float>(query),
+                tensor_ptr<float>(key),
+                tensor_ptr<float>(value),
+                config
+            );
+            break;
+            
+        case KernelType::OPTIMIZED_V7:
+            output = flash_attn_forward_optimized_v7_sycl(
+                *global_queue,
+                tensor_ptr<float>(query),
+                tensor_ptr<float>(key),
+                tensor_ptr<float>(value),
+                config
+            );
+            break;
+            
+        case KernelType::OPTIMIZED_V8:
+            output = flash_attn_forward_optimized_v8_sycl(
+                *global_queue,
+                tensor_ptr<float>(query),
+                tensor_ptr<float>(key),
+                tensor_ptr<float>(value),
+                config
+            );
+            break;
+            
+        default:
+            // Default to V8 for best overall performance
+            output = flash_attn_forward_optimized_v8_sycl(
+                *global_queue,
+                tensor_ptr<float>(query),
+                tensor_ptr<float>(key),
+                tensor_ptr<float>(value),
+                config
+            );
+            break;
+    }
     
     // Create output tensors from device pointers
     auto options = torch::TensorOptions()
@@ -171,6 +274,16 @@ py::dict get_device_info_py() {
 PYBIND11_MODULE(sycl_flash_attn, m) {
     m.doc() = "SYCL Flash Attention for Intel GPUs";
     
+    // Kernel type enum
+    py::enum_<KernelType>(m, "KernelType")
+        .value("AUTO", KernelType::AUTO)
+        .value("OPTIMIZED_V3", KernelType::OPTIMIZED_V3)
+        .value("XMX", KernelType::XMX)
+        .value("OPTIMIZED_V4", KernelType::OPTIMIZED_V4)
+        .value("OPTIMIZED_V5", KernelType::OPTIMIZED_V5)
+        .value("OPTIMIZED_V7", KernelType::OPTIMIZED_V7)
+        .value("OPTIMIZED_V8", KernelType::OPTIMIZED_V8);
+    
     m.def("forward", &flash_attn_forward_py,
           "Flash attention forward pass",
           py::arg("query"),
@@ -180,7 +293,8 @@ PYBIND11_MODULE(sycl_flash_attn, m) {
           py::arg("softmax_scale") = -1.0f,
           py::arg("is_causal") = false,
           py::arg("window_size_left") = -1,
-          py::arg("window_size_right") = -1);
+          py::arg("window_size_right") = -1,
+          py::arg("kernel_type") = 0);
     
     m.def("backward", &flash_attn_backward_py,
           "Flash attention backward pass",

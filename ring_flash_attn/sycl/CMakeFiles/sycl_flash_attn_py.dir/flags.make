@@ -6,5 +6,5 @@ CXX_DEFINES = -DTORCH_EXTENSION_NAME=sycl_flash_attn -DUSE_C10D_GLOO -DUSE_DISTR
 
 CXX_INCLUDES = -I/home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl -isystem /lus/flare/projects/hp-ptycho/binkma/venv/infer/lib/python3.10/site-packages/torch/include -isystem /lus/flare/projects/hp-ptycho/binkma/venv/infer/lib/python3.10/site-packages/torch/include/torch/csrc/api/include -isystem /opt/aurora/24.347.0/frameworks/aurora_nre_models_frameworks-2025.0.0/include/python3.10 -isystem /lus/flare/projects/hp-ptycho/binkma/venv/infer/lib/python3.10/site-packages/pybind11/include -isystem /opt/aurora/24.347.0/oneapi/compiler/2025.0/include -isystem /opt/aurora/24.347.0/oneapi/compiler/latest/include/sycl
 
-CXX_FLAGS =  -fsycl -fsycl-targets=spir64_gen -Xs "-device pvc" -O3 -DNDEBUG -O3 -DNDEBUG -march=native -ffast-math -std=gnu++17 -fPIC -fvisibility=hidden -D_GLIBCXX_USE_CXX11_ABI=1 -ipo
+CXX_FLAGS =  -fsycl -fsycl-targets=spir64_gen -Xs "-device pvc" -O3 -DNDEBUG -O3 -DNDEBUG -march=native -fno-finite-math-only -ftree-vectorize -funroll-loops -finline-functions -fsycl-force-inline-kernel-lambda -fsycl-id-queries-fit-in-int -std=gnu++17 -fPIC -fvisibility=hidden -D_GLIBCXX_USE_CXX11_ABI=1 -ipo
 

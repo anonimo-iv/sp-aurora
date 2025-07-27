@@ -27,8 +27,55 @@ struct FlashAttnConfig {
     int block_size_k;
 };
 
-// Main kernel function declarations
-FlashAttnOutput flash_attn_forward_sycl(
+// Removed basic and streaming kernels - they were too slow
+
+// Optimized V3 forward pass without atomic operations
+FlashAttnOutput flash_attn_forward_optimized_v3_sycl(
+    sycl::queue& q,
+    const float* query,     // [batch, num_heads, seq_len_q, head_dim]
+    const float* key,       // [batch, num_heads, seq_len_k, head_dim]  
+    const float* value,     // [batch, num_heads, seq_len_k, head_dim]
+    const FlashAttnConfig& config
+);
+
+// XMX-accelerated forward pass for Intel Max GPUs
+FlashAttnOutput flash_attn_forward_xmx_sycl(
+    sycl::queue& q,
+    const float* query,     // [batch, num_heads, seq_len_q, head_dim]
+    const float* key,       // [batch, num_heads, seq_len_k, head_dim]  
+    const float* value,     // [batch, num_heads, seq_len_k, head_dim]
+    const FlashAttnConfig& config
+);
+
+// Optimized V4 forward pass with PyTorch-inspired optimizations
+FlashAttnOutput flash_attn_forward_optimized_v4_sycl(
+    sycl::queue& q,
+    const float* query,     // [batch, num_heads, seq_len_q, head_dim]
+    const float* key,       // [batch, num_heads, seq_len_k, head_dim]  
+    const float* value,     // [batch, num_heads, seq_len_k, head_dim]
+    const FlashAttnConfig& config
+);
+
+// Optimized V5 forward pass - Non-causal optimized for DiT inference
+FlashAttnOutput flash_attn_forward_optimized_v5_sycl(
+    sycl::queue& q,
+    const float* query,     // [batch, num_heads, seq_len_q, head_dim]
+    const float* key,       // [batch, num_heads, seq_len_k, head_dim]  
+    const float* value,     // [batch, num_heads, seq_len_k, head_dim]
+    const FlashAttnConfig& config
+);
+
+// Optimized V7 forward pass - Best of V4 and V5 with XMX acceleration
+FlashAttnOutput flash_attn_forward_optimized_v7_sycl(
+    sycl::queue& q,
+    const float* query,     // [batch, num_heads, seq_len_q, head_dim]
+    const float* key,       // [batch, num_heads, seq_len_k, head_dim]  
+    const float* value,     // [batch, num_heads, seq_len_k, head_dim]
+    const FlashAttnConfig& config
+);
+
+// Optimized V8 forward pass - Beat PyTorch with Intel GPU optimizations
+FlashAttnOutput flash_attn_forward_optimized_v8_sycl(
     sycl::queue& q,
     const float* query,     // [batch, num_heads, seq_len_q, head_dim]
     const float* key,       // [batch, num_heads, seq_len_k, head_dim]  

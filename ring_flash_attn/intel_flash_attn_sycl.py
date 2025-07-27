@@ -47,6 +47,7 @@ def intel_flash_attn_forward_sycl(
     window_size: Tuple[int, int] = (-1, -1),
     alibi_slopes: Optional[torch.Tensor] = None,
     return_softmax: bool = False,
+    kernel_type: str = "auto",
     **kwargs
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
@@ -65,6 +66,7 @@ def intel_flash_attn_forward_sycl(
         window_size: Local attention window size
         alibi_slopes: ALiBi slopes (not supported in SYCL version)
         return_softmax: Whether to return softmax weights (not supported)
+        kernel_type: Kernel implementation to use ("auto", "optimized_v3", "xmx", "optimized_v4", "optimized_v5", "optimized_v7", "optimized_v8")
         
     Returns:
         output: Attention output [batch, num_heads, seq_len_q, head_dim]
@@ -104,15 +106,29 @@ def intel_flash_attn_forward_sycl(
     if softmax_scale is None:
         softmax_scale = q.shape[-1] ** (-0.5)
     
+    # Map kernel type string to enum value
+    kernel_type_map = {
+        "auto": 0,
+        "optimized_v3": 2,
+        "xmx": 4,
+        "optimized_v4": 5,
+        "optimized_v5": 6,
+        "optimized_v7": 7,
+        "optimized_v8": 8
+    }
+    
+    kernel_type_int = kernel_type_map.get(kernel_type.lower(), 0)
+    
     try:
-        # Call SYCL kernel
+        # Call SYCL kernel with kernel type selection
         output, lse = sycl_fa.forward(
             q, k, v,
             dropout_p=dropout_p,
             softmax_scale=softmax_scale,
             is_causal=causal,
             window_size_left=window_size[0],
-            window_size_right=window_size[1]
+            window_size_right=window_size[1],
+            kernel_type=kernel_type_int
         )
         
         # Convert back to original dtype if needed

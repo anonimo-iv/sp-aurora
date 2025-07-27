@@ -187,29 +187,173 @@ sycl_flash_attn_py/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn_py.dir/build.make CMakeFiles/sycl_flash_attn_py.dir/build
 .PHONY : sycl_flash_attn_py/fast
 
-flash_attn_kernel.o: flash_attn_kernel.cpp.o
-.PHONY : flash_attn_kernel.o
+flash_attn_kernel_optimized_v3.o: flash_attn_kernel_optimized_v3.cpp.o
+.PHONY : flash_attn_kernel_optimized_v3.o
 
 # target to build an object file
-flash_attn_kernel.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel.cpp.o
-.PHONY : flash_attn_kernel.cpp.o
+flash_attn_kernel_optimized_v3.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_optimized_v3.cpp.o
+.PHONY : flash_attn_kernel_optimized_v3.cpp.o
 
-flash_attn_kernel.i: flash_attn_kernel.cpp.i
-.PHONY : flash_attn_kernel.i
+flash_attn_kernel_optimized_v3.i: flash_attn_kernel_optimized_v3.cpp.i
+.PHONY : flash_attn_kernel_optimized_v3.i
 
 # target to preprocess a source file
-flash_attn_kernel.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel.cpp.i
-.PHONY : flash_attn_kernel.cpp.i
+flash_attn_kernel_optimized_v3.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_optimized_v3.cpp.i
+.PHONY : flash_attn_kernel_optimized_v3.cpp.i
 
-flash_attn_kernel.s: flash_attn_kernel.cpp.s
-.PHONY : flash_attn_kernel.s
+flash_attn_kernel_optimized_v3.s: flash_attn_kernel_optimized_v3.cpp.s
+.PHONY : flash_attn_kernel_optimized_v3.s
 
 # target to generate assembly for a file
-flash_attn_kernel.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel.cpp.s
-.PHONY : flash_attn_kernel.cpp.s
+flash_attn_kernel_optimized_v3.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_optimized_v3.cpp.s
+.PHONY : flash_attn_kernel_optimized_v3.cpp.s
+
+flash_attn_kernel_optimized_v3_fixed.o: flash_attn_kernel_optimized_v3_fixed.cpp.o
+.PHONY : flash_attn_kernel_optimized_v3_fixed.o
+
+# target to build an object file
+flash_attn_kernel_optimized_v3_fixed.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_optimized_v3_fixed.cpp.o
+.PHONY : flash_attn_kernel_optimized_v3_fixed.cpp.o
+
+flash_attn_kernel_optimized_v3_fixed.i: flash_attn_kernel_optimized_v3_fixed.cpp.i
+.PHONY : flash_attn_kernel_optimized_v3_fixed.i
+
+# target to preprocess a source file
+flash_attn_kernel_optimized_v3_fixed.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_optimized_v3_fixed.cpp.i
+.PHONY : flash_attn_kernel_optimized_v3_fixed.cpp.i
+
+flash_attn_kernel_optimized_v3_fixed.s: flash_attn_kernel_optimized_v3_fixed.cpp.s
+.PHONY : flash_attn_kernel_optimized_v3_fixed.s
+
+# target to generate assembly for a file
+flash_attn_kernel_optimized_v3_fixed.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_optimized_v3_fixed.cpp.s
+.PHONY : flash_attn_kernel_optimized_v3_fixed.cpp.s
+
+flash_attn_kernel_optimized_v4.o: flash_attn_kernel_optimized_v4.cpp.o
+.PHONY : flash_attn_kernel_optimized_v4.o
+
+# target to build an object file
+flash_attn_kernel_optimized_v4.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_optimized_v4.cpp.o
+.PHONY : flash_attn_kernel_optimized_v4.cpp.o
+
+flash_attn_kernel_optimized_v4.i: flash_attn_kernel_optimized_v4.cpp.i
+.PHONY : flash_attn_kernel_optimized_v4.i
+
+# target to preprocess a source file
+flash_attn_kernel_optimized_v4.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_optimized_v4.cpp.i
+.PHONY : flash_attn_kernel_optimized_v4.cpp.i
+
+flash_attn_kernel_optimized_v4.s: flash_attn_kernel_optimized_v4.cpp.s
+.PHONY : flash_attn_kernel_optimized_v4.s
+
+# target to generate assembly for a file
+flash_attn_kernel_optimized_v4.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_optimized_v4.cpp.s
+.PHONY : flash_attn_kernel_optimized_v4.cpp.s
+
+flash_attn_kernel_optimized_v5.o: flash_attn_kernel_optimized_v5.cpp.o
+.PHONY : flash_attn_kernel_optimized_v5.o
+
+# target to build an object file
+flash_attn_kernel_optimized_v5.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_optimized_v5.cpp.o
+.PHONY : flash_attn_kernel_optimized_v5.cpp.o
+
+flash_attn_kernel_optimized_v5.i: flash_attn_kernel_optimized_v5.cpp.i
+.PHONY : flash_attn_kernel_optimized_v5.i
+
+# target to preprocess a source file
+flash_attn_kernel_optimized_v5.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_optimized_v5.cpp.i
+.PHONY : flash_attn_kernel_optimized_v5.cpp.i
+
+flash_attn_kernel_optimized_v5.s: flash_attn_kernel_optimized_v5.cpp.s
+.PHONY : flash_attn_kernel_optimized_v5.s
+
+# target to generate assembly for a file
+flash_attn_kernel_optimized_v5.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_optimized_v5.cpp.s
+.PHONY : flash_attn_kernel_optimized_v5.cpp.s
+
+flash_attn_kernel_optimized_v7.o: flash_attn_kernel_optimized_v7.cpp.o
+.PHONY : flash_attn_kernel_optimized_v7.o
+
+# target to build an object file
+flash_attn_kernel_optimized_v7.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_optimized_v7.cpp.o
+.PHONY : flash_attn_kernel_optimized_v7.cpp.o
+
+flash_attn_kernel_optimized_v7.i: flash_attn_kernel_optimized_v7.cpp.i
+.PHONY : flash_attn_kernel_optimized_v7.i
+
+# target to preprocess a source file
+flash_attn_kernel_optimized_v7.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_optimized_v7.cpp.i
+.PHONY : flash_attn_kernel_optimized_v7.cpp.i
+
+flash_attn_kernel_optimized_v7.s: flash_attn_kernel_optimized_v7.cpp.s
+.PHONY : flash_attn_kernel_optimized_v7.s
+
+# target to generate assembly for a file
+flash_attn_kernel_optimized_v7.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_optimized_v7.cpp.s
+.PHONY : flash_attn_kernel_optimized_v7.cpp.s
+
+flash_attn_kernel_optimized_v8.o: flash_attn_kernel_optimized_v8.cpp.o
+.PHONY : flash_attn_kernel_optimized_v8.o
+
+# target to build an object file
+flash_attn_kernel_optimized_v8.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_optimized_v8.cpp.o
+.PHONY : flash_attn_kernel_optimized_v8.cpp.o
+
+flash_attn_kernel_optimized_v8.i: flash_attn_kernel_optimized_v8.cpp.i
+.PHONY : flash_attn_kernel_optimized_v8.i
+
+# target to preprocess a source file
+flash_attn_kernel_optimized_v8.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_optimized_v8.cpp.i
+.PHONY : flash_attn_kernel_optimized_v8.cpp.i
+
+flash_attn_kernel_optimized_v8.s: flash_attn_kernel_optimized_v8.cpp.s
+.PHONY : flash_attn_kernel_optimized_v8.s
+
+# target to generate assembly for a file
+flash_attn_kernel_optimized_v8.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_optimized_v8.cpp.s
+.PHONY : flash_attn_kernel_optimized_v8.cpp.s
+
+flash_attn_kernel_xmx_simple.o: flash_attn_kernel_xmx_simple.cpp.o
+.PHONY : flash_attn_kernel_xmx_simple.o
+
+# target to build an object file
+flash_attn_kernel_xmx_simple.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_xmx_simple.cpp.o
+.PHONY : flash_attn_kernel_xmx_simple.cpp.o
+
+flash_attn_kernel_xmx_simple.i: flash_attn_kernel_xmx_simple.cpp.i
+.PHONY : flash_attn_kernel_xmx_simple.i
+
+# target to preprocess a source file
+flash_attn_kernel_xmx_simple.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_xmx_simple.cpp.i
+.PHONY : flash_attn_kernel_xmx_simple.cpp.i
+
+flash_attn_kernel_xmx_simple.s: flash_attn_kernel_xmx_simple.cpp.s
+.PHONY : flash_attn_kernel_xmx_simple.s
+
+# target to generate assembly for a file
+flash_attn_kernel_xmx_simple.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/flash_attn_kernel_xmx_simple.cpp.s
+.PHONY : flash_attn_kernel_xmx_simple.cpp.s
 
 home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl_bindings/bindings.o: home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl_bindings/bindings.cpp.o
 .PHONY : home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl_bindings/bindings.o
@@ -259,6 +403,30 @@ ring_flash_attn_kernel.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/ring_flash_attn_kernel.cpp.s
 .PHONY : ring_flash_attn_kernel.cpp.s
 
+utils.o: utils.cpp.o
+.PHONY : utils.o
+
+# target to build an object file
+utils.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/utils.cpp.o
+.PHONY : utils.cpp.o
+
+utils.i: utils.cpp.i
+.PHONY : utils.i
+
+# target to preprocess a source file
+utils.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/utils.cpp.i
+.PHONY : utils.cpp.i
+
+utils.s: utils.cpp.s
+.PHONY : utils.s
+
+# target to generate assembly for a file
+utils.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/sycl_flash_attn.dir/build.make CMakeFiles/sycl_flash_attn.dir/utils.cpp.s
+.PHONY : utils.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -273,15 +441,36 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... sycl_flash_attn"
 	@echo "... sycl_flash_attn_py"
-	@echo "... flash_attn_kernel.o"
-	@echo "... flash_attn_kernel.i"
-	@echo "... flash_attn_kernel.s"
+	@echo "... flash_attn_kernel_optimized_v3.o"
+	@echo "... flash_attn_kernel_optimized_v3.i"
+	@echo "... flash_attn_kernel_optimized_v3.s"
+	@echo "... flash_attn_kernel_optimized_v3_fixed.o"
+	@echo "... flash_attn_kernel_optimized_v3_fixed.i"
+	@echo "... flash_attn_kernel_optimized_v3_fixed.s"
+	@echo "... flash_attn_kernel_optimized_v4.o"
+	@echo "... flash_attn_kernel_optimized_v4.i"
+	@echo "... flash_attn_kernel_optimized_v4.s"
+	@echo "... flash_attn_kernel_optimized_v5.o"
+	@echo "... flash_attn_kernel_optimized_v5.i"
+	@echo "... flash_attn_kernel_optimized_v5.s"
+	@echo "... flash_attn_kernel_optimized_v7.o"
+	@echo "... flash_attn_kernel_optimized_v7.i"
+	@echo "... flash_attn_kernel_optimized_v7.s"
+	@echo "... flash_attn_kernel_optimized_v8.o"
+	@echo "... flash_attn_kernel_optimized_v8.i"
+	@echo "... flash_attn_kernel_optimized_v8.s"
+	@echo "... flash_attn_kernel_xmx_simple.o"
+	@echo "... flash_attn_kernel_xmx_simple.i"
+	@echo "... flash_attn_kernel_xmx_simple.s"
 	@echo "... home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl_bindings/bindings.o"
 	@echo "... home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl_bindings/bindings.i"
 	@echo "... home/binkma/bm_dif/Ring-FT/ring_flash_attn/sycl_bindings/bindings.s"
 	@echo "... ring_flash_attn_kernel.o"
 	@echo "... ring_flash_attn_kernel.i"
 	@echo "... ring_flash_attn_kernel.s"
+	@echo "... utils.o"
+	@echo "... utils.i"
+	@echo "... utils.s"
 .PHONY : help
 
 

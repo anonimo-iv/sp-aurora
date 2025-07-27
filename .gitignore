@@ -22,6 +22,8 @@ parts/
 sdist/
 var/
 wheels/
+ring_flash_attn/sycl/
+cclogs/
 share/python-wheels/
 *.egg-info/
 .installed.cfg

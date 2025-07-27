@@ -1,0 +1,12 @@
+=== Checking oneDNN/MKL-DNN Usage in PyTorch ===
+
+1. PyTorch Build Information:
+   PyTorch version: 2.5.1+cxx11.abi
+   Built with MKL-DNN: True
+   MKL is available: True
+Traceback (most recent call last):
+  File "/home/binkma/bm_dif/Ring-FT/check_onednn_usage.py", line 160, in <module>
+    check_onednn_usage()
+  File "/home/binkma/bm_dif/Ring-FT/check_onednn_usage.py", line 27, in check_onednn_usage
+    print(f"   MKL enabled: {torch.backends.mkl.is_enabled()}")
+AttributeError: module 'torch.backends.mkl' has no attribute 'is_enabled'
