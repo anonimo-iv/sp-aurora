@@ -513,7 +513,7 @@ def test_ring_backward_only():
 
 # ========== TEST 7: Full Ring Flash Attention Test ==========
 def test_full_ring_attention():
-    """Test complete ring flash attention with forward and backward"""
+    """Test complete ring flash attention for inference (forward only)"""
     if not should_run_test('test_full_ring_attention'):
         return True
         
@@ -532,35 +532,35 @@ def test_full_ring_attention():
         
         local_seq_len = seq_len // WORLD_SIZE
         
-        # Create tensors
-        q = torch.randn(batch_size, local_seq_len, num_heads, head_dim, device=DEVICE, dtype=torch.float16, requires_grad=True)
-        k = torch.randn(batch_size, local_seq_len, num_heads, head_dim, device=DEVICE, dtype=torch.float16, requires_grad=True)
-        v = torch.randn(batch_size, local_seq_len, num_heads, head_dim, device=DEVICE, dtype=torch.float16, requires_grad=True)
+        # Create tensors without gradients (inference mode)
+        q = torch.randn(batch_size, local_seq_len, num_heads, head_dim, device=DEVICE, dtype=torch.float16)
+        k = torch.randn(batch_size, local_seq_len, num_heads, head_dim, device=DEVICE, dtype=torch.float16)
+        v = torch.randn(batch_size, local_seq_len, num_heads, head_dim, device=DEVICE, dtype=torch.float16)
         
-        print(f"[Rank {RANK}] Testing full ring attention with shape: {q.shape}")
+        print(f"[Rank {RANK}] Testing full ring attention (inference) with shape: {q.shape}")
         
         debug_print("Running full ring flash attention...")
         setup_timeout(60)
         
-        # Forward pass
-        out = intel_ring_flash_attn_func(
-            q, k, v,
-            dropout_p=0.0,
-            causal=True,
-            return_attn_probs=False
-        )
-        
-        print(f"[Rank {RANK}] ✓ Forward pass complete")
-        
-        # Backward pass
-        dout = torch.randn_like(out)
-        out.backward(dout)
+        # Forward pass in inference mode
+        with torch.no_grad():
+            out = intel_ring_flash_attn_func(
+                q, k, v,
+                dropout_p=0.0,
+                causal=True,
+                return_attn_probs=False
+            )
         
         cancel_timeout()
         
-        print(f"[Rank {RANK}] ✓ Full ring attention successful")
+        print(f"[Rank {RANK}] ✓ Full ring attention inference successful")
         print(f"[Rank {RANK}]   Output shape: {out.shape}")
-        print(f"[Rank {RANK}]   Gradients: q.grad={q.grad is not None}, k.grad={k.grad is not None}, v.grad={v.grad is not None}")
+        print(f"[Rank {RANK}]   Output stats: mean={out.mean().item():.4f}, std={out.std().item():.4f}")
+        print(f"[Rank {RANK}]   Output range: [{out.min().item():.4f}, {out.max().item():.4f}]")
+        
+        # Verify output is reasonable (not NaN or Inf)
+        if torch.isnan(out).any() or torch.isinf(out).any():
+            raise ValueError("Output contains NaN or Inf values")
         
         test_marker("test_full_ring_attention", "PASS")
         return True
@@ -642,22 +642,23 @@ def main():
     
     # Initialize process group early if running specific tests that need it
     if WORLD_SIZE > 1 and TEST_ONLY in ['test_ring_comm', 'test_ring_forward_only', 'test_ring_backward_only', 'test_full_ring_attention']:
-        print(f"[Rank {RANK}] Early initialization for {TEST_ONLY}")
-        print(f"[Rank {RANK}] MASTER_ADDR={os.environ.get('MASTER_ADDR')}, MASTER_PORT={os.environ.get('MASTER_PORT')}")
-        
-        # Initialize with appropriate backend
-        backend = "ccl" if INTEL_GPU_AVAILABLE else "gloo"
-        print(f"[Rank {RANK}] Using backend: {backend}")
-        
-        dist.init_process_group(
-            backend=backend, 
-            init_method='env://', 
-            world_size=WORLD_SIZE, 
-            rank=RANK,
-            timeout=datetime.timedelta(seconds=360)
-        )
-        if mpi_size > 1:
-            mpi_comm.Barrier()
+        if not dist.is_initialized():
+            print(f"[Rank {RANK}] Early initialization for {TEST_ONLY}")
+            print(f"[Rank {RANK}] MASTER_ADDR={os.environ.get('MASTER_ADDR')}, MASTER_PORT={os.environ.get('MASTER_PORT')}")
+            
+            # Initialize with appropriate backend
+            backend = "ccl" if INTEL_GPU_AVAILABLE else "gloo"
+            print(f"[Rank {RANK}] Using backend: {backend}")
+            
+            dist.init_process_group(
+                backend=backend, 
+                init_method='env://', 
+                world_size=WORLD_SIZE, 
+                rank=RANK,
+                timeout=datetime.timedelta(seconds=360)
+            )
+            if mpi_size > 1:
+                mpi_comm.Barrier()
     
     # Run basic setup test first
     if not test_basic_setup():
@@ -723,6 +724,21 @@ def main():
             failed_tests.append(test_name)
             if os.environ.get('STOP_ON_FAILURE', '0') == '1':
                 break
+        
+        # Clean up GPU memory between tests
+        if INTEL_GPU_AVAILABLE and DEVICE.type == 'xpu':
+            try:
+                torch.xpu.empty_cache()
+                torch.xpu.synchronize()
+            except Exception:
+                pass
+        
+        # Synchronize all processes after each test
+        if dist.is_initialized() and WORLD_SIZE > 1:
+            try:
+                dist.barrier()
+            except Exception as e:
+                print(f"[Rank {RANK}] Warning: barrier failed after {test_name}: {e}")
     
     # Summary
     print(f"\n{'='*60}")
@@ -733,9 +749,23 @@ def main():
     else:
         print(f"[Rank {RANK}] ✅ All tests passed!")
     
+    # Final synchronization before cleanup
+    if dist.is_initialized():
+        try:
+            dist.barrier()
+        except Exception as e:
+            print(f"[Rank {RANK}] Warning: barrier failed during cleanup: {e}")
+    
     # Cleanup
     if dist.is_initialized():
         dist.destroy_process_group()
+    
+    # Final MPI barrier to ensure all processes finish together
+    if mpi_size > 1:
+        try:
+            mpi_comm.Barrier()
+        except Exception as e:
+            print(f"[Rank {RANK}] Warning: MPI barrier failed: {e}")
     
     return len(failed_tests)
 
