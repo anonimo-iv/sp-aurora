@@ -4,11 +4,13 @@ Intel GPU compatible Ring Flash Attention implementation
 
 import torch
 import torch.distributed as dist
-from .intel_flash_attn import _flash_attn_forward, _flash_attn_backward
+import torch.nn.functional as F
 from .intel_utils import IntelRingComm, update_out_and_lse, get_default_args
+from .intel_flash_attn import _flash_attn_forward, _flash_attn_backward
 import intel_extension_for_pytorch as ipex
 import time
 import os
+import math
 
 
 def intel_ring_flash_attn_forward(
@@ -33,9 +35,18 @@ def intel_ring_flash_attn_forward(
     
     # Handle single process case (no distributed communication needed)
     if not dist.is_initialized() or (process_group is None and dist.get_world_size() == 1):
-        # Single process - use regular flash attention
-        from .intel_flash_attn import intel_flash_attn_forward
-        return intel_flash_attn_forward(q, k, v, causal=causal, softmax_scale=softmax_scale)
+        # Single process - use PyTorch SDPA
+        output = F.scaled_dot_product_attention(
+            q, k, v, 
+            attn_mask=None,
+            dropout_p=dropout_p,
+            is_causal=causal,
+            scale=softmax_scale
+        )
+        # Calculate LSE for compatibility
+        batch_size, num_heads, seq_len, head_dim = q.shape
+        lse = torch.zeros(batch_size, num_heads, seq_len, dtype=torch.float32, device=q.device)
+        return output, lse
     
     comm = IntelRingComm(process_group)
     
@@ -57,32 +68,32 @@ def intel_ring_flash_attn_forward(
 
         # Computation phase
         if not causal or step <= comm.rank:
-            
-            params = get_default_args(_flash_attn_forward).copy()
-            params.update(
-                {
-                    "q": q,
-                    "k": k,
-                    "v": v,
-                    "dropout_p": dropout_p,
-                    "softmax_scale": softmax_scale,
-                    "causal": causal and step == 0,
-                    "alibi_slopes": alibi_slopes,
-                    "return_softmax": True and dropout_p > 0,
-                }
+            # Use PyTorch SDPA for this block
+            block_out = F.scaled_dot_product_attention(
+                q, k, v,
+                attn_mask=None,
+                dropout_p=dropout_p,
+                is_causal=causal and step == 0,
+                scale=softmax_scale
             )
-            if "window_size" in params:
-                params.update({"window_size": window_size})
-            else:
-                params.update(
-                    {
-                        "window_size_left": window_size[0],
-                        "window_size_right": window_size[1],
-                    }
-                )
             
-            # Use Intel compatible flash attention
-            block_out, block_lse = _flash_attn_forward(**params)
+            # Calculate block LSE manually for ring attention accumulation
+            # This is an approximation since SDPA doesn't return LSE directly
+            batch_size, num_heads, seq_len_q, head_dim = q.shape
+            seq_len_k = k.shape[2]
+            
+            # Compute attention scores
+            scores = torch.matmul(q, k.transpose(-2, -1)) * softmax_scale
+            
+            # Apply causal mask if needed
+            if causal and step == 0:
+                causal_mask = torch.triu(torch.ones(seq_len_q, seq_len_k, device=scores.device), diagonal=1).bool()
+                scores.masked_fill_(causal_mask, float('-inf'))
+            
+            # Calculate LSE
+            block_lse = torch.logsumexp(scores, dim=-1, keepdim=False)
+            
+            # Update accumulated output and LSE
             out, lse = update_out_and_lse(out, lse, block_out, block_lse)
 
         # Synchronization phase

@@ -40,7 +40,10 @@ enum class KernelType {
     OPTIMIZED_V4 = 5,
     OPTIMIZED_V5 = 6,
     OPTIMIZED_V7 = 7,
-    OPTIMIZED_V8 = 8
+    OPTIMIZED_V8 = 8,
+#ifdef HAS_ONEDNN
+    ONEDNN = 9
+#endif
 };
 
 // Python-exposed forward function with kernel selection
@@ -189,6 +192,45 @@ std::tuple<torch::Tensor, torch::Tensor> flash_attn_forward_py(
             );
             break;
             
+#ifdef HAS_ONEDNN
+        case KernelType::ONEDNN:
+            {
+                // Allocate output tensors
+                auto options = torch::TensorOptions()
+                    .dtype(torch::kFloat32)
+                    .device(torch::kXPU);
+                
+                torch::Tensor out_tensor = torch::empty(
+                    {batch_size, num_heads, seq_len_q, head_dim},
+                    options
+                );
+                
+                // Call oneDNN kernel
+                launch_flash_attention_forward_onednn(
+                    *global_queue,
+                    tensor_ptr<float>(query),
+                    tensor_ptr<float>(key),
+                    tensor_ptr<float>(value),
+                    tensor_ptr<float>(out_tensor),
+                    batch_size,
+                    num_heads,
+                    seq_len_q,
+                    head_dim,
+                    config.softmax_scale,
+                    config.is_causal
+                );
+                
+                // Create dummy LSE tensor (oneDNN doesn't compute it)
+                torch::Tensor lse_tensor = torch::zeros(
+                    {batch_size, num_heads, seq_len_q},
+                    options
+                );
+                
+                // Return without using FlashAttnOutput
+                return std::make_tuple(out_tensor, lse_tensor);
+            }
+#endif
+            
         default:
             // Default to V8 for best overall performance
             output = flash_attn_forward_optimized_v8_sycl(
@@ -282,7 +324,11 @@ PYBIND11_MODULE(sycl_flash_attn, m) {
         .value("OPTIMIZED_V4", KernelType::OPTIMIZED_V4)
         .value("OPTIMIZED_V5", KernelType::OPTIMIZED_V5)
         .value("OPTIMIZED_V7", KernelType::OPTIMIZED_V7)
-        .value("OPTIMIZED_V8", KernelType::OPTIMIZED_V8);
+        .value("OPTIMIZED_V8", KernelType::OPTIMIZED_V8)
+#ifdef HAS_ONEDNN
+        .value("ONEDNN", KernelType::ONEDNN)
+#endif
+        ;
     
     m.def("forward", &flash_attn_forward_py,
           "Flash attention forward pass",

@@ -66,7 +66,7 @@ def intel_flash_attn_forward_sycl(
         window_size: Local attention window size
         alibi_slopes: ALiBi slopes (not supported in SYCL version)
         return_softmax: Whether to return softmax weights (not supported)
-        kernel_type: Kernel implementation to use ("auto", "optimized_v3", "xmx", "optimized_v4", "optimized_v5", "optimized_v7", "optimized_v8")
+        kernel_type: Kernel implementation to use ("auto", "optimized_v3", "xmx", "optimized_v4", "optimized_v5", "optimized_v7", "optimized_v8", "onednn")
         
     Returns:
         output: Attention output [batch, num_heads, seq_len_q, head_dim]
@@ -111,10 +111,8 @@ def intel_flash_attn_forward_sycl(
         "auto": 0,
         "optimized_v3": 2,
         "xmx": 4,
-        "optimized_v4": 5,
         "optimized_v5": 6,
-        "optimized_v7": 7,
-        "optimized_v8": 8
+        "onednn": 9
     }
     
     kernel_type_int = kernel_type_map.get(kernel_type.lower(), 0)

@@ -20,6 +20,7 @@ dependencies = [
     "intel-extension-for-pytorch>=2.0.0",
     "oneccl-bind-pt",
 ]
+dynamic = ["optional-dependencies"]
 
 [project.urls]
 Homepage = "https://github.com/zhuzilin/ring-flash-attention"

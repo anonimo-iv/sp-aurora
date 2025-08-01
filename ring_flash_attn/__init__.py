@@ -14,7 +14,22 @@ from .intel_ring_flash_attn import (
     intel_ring_flash_attn_kvpacked_func as ring_flash_attn_kvpacked_func,
     intel_ring_flash_attn_qkvpacked_func as ring_flash_attn_qkvpacked_func,
 )
-print("Using Intel GPU backend for Ring Flash Attention")
+
+# Import Intel Ulysses (Sequence Parallel) implementations
+from .intel_ulysses_attn import (
+    intel_ulysses_flash_attn_func as ulysses_flash_attn_func,
+    intel_ulysses_flash_attn_kvpacked_func as ulysses_flash_attn_kvpacked_func,
+    intel_ulysses_flash_attn_qkvpacked_func as ulysses_flash_attn_qkvpacked_func,
+    IntelUlyssesComm as UlyssesComm,
+    IntelSeqAllToAll4D as SeqAllToAll4D,
+)
+
+# Import new class-based Ulysses attention
+from .ulysses.attn_layer import UlyssesAttention
+from .comm.all_to_all import SeqAllToAll4D as SeqAllToAll4D_v2, SeqAllToAll5D
+
+# Defer print to avoid MPI initialization issues
+# print("Using Intel GPU backend for Ring Flash Attention and Ulysses Attention")
 
 try:
     from .adapters import (

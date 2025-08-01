@@ -1,0 +1,1 @@
+"""SYCL kernels for Intel GPU Flash Attention"""
