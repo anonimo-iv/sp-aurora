@@ -5,12 +5,13 @@ Intel GPU compatible Ring Flash Attention implementation
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
-from .intel_utils import IntelRingComm, update_out_and_lse, get_default_args
+from .utils import IntelRingComm, update_out_and_lse, get_default_args
 from .intel_flash_attn import _flash_attn_forward, _flash_attn_backward
 import intel_extension_for_pytorch as ipex
 import time
 import os
 import math
+from typing import Optional, Tuple, Any
 
 
 def intel_ring_flash_attn_forward(
@@ -33,6 +34,12 @@ def intel_ring_flash_attn_forward(
         k = k.to('xpu') 
         v = v.to('xpu')
     
+    # Convert from [batch, seq_len, num_heads, head_dim] to [batch, num_heads, seq_len, head_dim]
+    if q.dim() == 4 and q.shape[1] != k.shape[1]:
+        q = q.transpose(1, 2).contiguous()
+        k = k.transpose(1, 2).contiguous()
+        v = v.transpose(1, 2).contiguous()
+    
     # Handle single process case (no distributed communication needed)
     if not dist.is_initialized() or (process_group is None and dist.get_world_size() == 1):
         # Single process - use PyTorch SDPA
@@ -51,8 +58,10 @@ def intel_ring_flash_attn_forward(
     comm = IntelRingComm(process_group)
     
     # CCL backend requires a collective operation before P2P communication
-    dummy_tensor = torch.tensor([1.0], device='xpu')
-    dist.all_reduce(dummy_tensor)
+    # Only do this if we have multiple ranks in the ring
+    if comm.world_size > 1:
+        dummy_tensor = torch.tensor([1.0], device='xpu')
+        dist.all_reduce(dummy_tensor, group=process_group)
 
     out = None
     lse = None
@@ -68,30 +77,52 @@ def intel_ring_flash_attn_forward(
 
         # Computation phase
         if not causal or step <= comm.rank:
-            # Use PyTorch SDPA for this block
-            block_out = F.scaled_dot_product_attention(
-                q, k, v,
-                attn_mask=None,
-                dropout_p=dropout_p,
-                is_causal=causal and step == 0,
-                scale=softmax_scale
-            )
-            
-            # Calculate block LSE manually for ring attention accumulation
-            # This is an approximation since SDPA doesn't return LSE directly
-            batch_size, num_heads, seq_len_q, head_dim = q.shape
-            seq_len_k = k.shape[2]
-            
-            # Compute attention scores
-            scores = torch.matmul(q, k.transpose(-2, -1)) * softmax_scale
-            
-            # Apply causal mask if needed
-            if causal and step == 0:
-                causal_mask = torch.triu(torch.ones(seq_len_q, seq_len_k, device=scores.device), diagonal=1).bool()
-                scores.masked_fill_(causal_mask, float('-inf'))
-            
-            # Calculate LSE
-            block_lse = torch.logsumexp(scores, dim=-1, keepdim=False)
+            # Try to use Intel flash attention which returns LSE
+            try:
+                from .intel_flash_attn import intel_flash_attn_forward
+                
+                # Apply causal mask logic based on ring step
+                # In ring attention, causal mask should consider global position
+                # Step 0: Each rank processes its own K,V - use causal mask
+                # Step > 0: Processing K,V from other ranks - only use causal if it's from an earlier rank
+                is_causal_step = causal and (step == 0)
+                
+                block_out, block_lse = intel_flash_attn_forward(
+                    q, k, v,
+                    dropout_p=dropout_p,
+                    causal=is_causal_step,
+                    softmax_scale=softmax_scale
+                )
+            except Exception:
+                # Fallback: compute attention manually with proper LSE
+                batch_size, num_heads, seq_len_q, head_dim = q.shape
+                seq_len_k = k.shape[2]
+                
+                # Compute attention scores
+                scores = torch.matmul(q, k.transpose(-2, -1)) * softmax_scale
+                
+                # Apply causal mask considering ring position
+                if causal:
+                    if step == 0:
+                        # First step: standard causal mask
+                        causal_mask = torch.triu(torch.ones(seq_len_q, seq_len_k, device=scores.device), diagonal=1)
+                        scores.masked_fill_(causal_mask.bool(), float('-inf'))
+                    elif step > comm.rank:
+                        # Future steps: mask everything (no attention to future positions)
+                        scores.fill_(float('-inf'))
+                
+                # Calculate LSE
+                block_lse = torch.logsumexp(scores, dim=-1, keepdim=False)
+                
+                # Compute attention weights
+                attn_weights = torch.exp(scores - block_lse.unsqueeze(-1))
+                
+                # Apply dropout if needed
+                if dropout_p > 0:
+                    attn_weights = F.dropout(attn_weights, p=dropout_p, training=True)
+                
+                # Compute output
+                block_out = torch.matmul(attn_weights, v)
             
             # Update accumulated output and LSE
             out, lse = update_out_and_lse(out, lse, block_out, block_lse)
@@ -104,9 +135,17 @@ def intel_ring_flash_attn_forward(
         
 
     # Final processing
-    # Convert back to original dimension ordering: [batch, num_heads, seq_len, head_dim] -> [batch, seq_len, num_heads, head_dim]
-    out = out.transpose(1, 2).to(q.dtype)
-    lse = lse.squeeze(dim=-1).transpose(1, 2)
+    # out is currently in [batch, num_heads, seq_len, head_dim] format
+    # The update_out_and_lse function returns in [batch, num_heads, seq_len, head_dim] format
+    # Convert to [batch, seq_len, num_heads, head_dim] for compatibility with the expected interface
+    if out.dim() == 4 and out.shape[1] != out.shape[2]:  # Likely [batch, num_heads, seq_len, head_dim]
+        out = out.transpose(1, 2).contiguous()
+    out = out.to(q.dtype)
+    
+    if lse.dim() == 4:
+        lse = lse.squeeze(dim=-1)
+    if lse.dim() == 3 and lse.shape[1] != lse.shape[2]:  # Likely [batch, num_heads, seq_len]
+        lse = lse.transpose(1, 2).contiguous()
     
     return out, lse
 

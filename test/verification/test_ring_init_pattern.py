@@ -27,8 +27,8 @@ except ImportError as e:
     INTEL_GPU_AVAILABLE = False
 
 # Import ring flash attention modules (like in test_ring.py)
-from ring_flash_attn.intel_ring_flash_attn import intel_ring_flash_attn_func
-from ring_flash_attn.intel_utils import IntelRingComm
+from sp_aurora.intel_sp_aurora import intel_sp_aurora_func
+from sp_aurora.intel_utils import IntelRingComm
 
 
 def main():

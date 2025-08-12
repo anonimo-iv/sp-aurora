@@ -24,8 +24,8 @@ except ImportError:
     INTEL_GPU_AVAILABLE = False
 
 # Import flash attention modules
-from ring_flash_attn.intel_flash_attn import intel_flash_attn_forward, intel_flash_attn_backward
-from ring_flash_attn.intel_ring_flash_attn import intel_ring_flash_attn_func
+from sp_aurora.intel_flash_attn import intel_flash_attn_forward, intel_flash_attn_backward
+from sp_aurora.intel_sp_aurora import intel_sp_aurora_func
 
 
 def compute_reference_attention(
@@ -310,7 +310,7 @@ def test_ring_communication_pattern():
     
     try:
         # Run ring flash attention
-        result = intel_ring_flash_attn_func(
+        result = intel_sp_aurora_func(
             q, k, v, 
             causal=True,
             return_attn_probs=False
@@ -455,7 +455,7 @@ def main():
     
     # Initialize distributed if running with MPI
     if 'OMPI_COMM_WORLD_SIZE' in os.environ or 'PMI_SIZE' in os.environ:
-        from ring_flash_attn.mpi_utils import setup_mpi_distributed
+        from sp_aurora.mpi_utils import setup_mpi_distributed
         setup_mpi_distributed()
     
     # Run tests

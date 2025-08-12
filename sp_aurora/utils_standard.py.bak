@@ -37,15 +37,28 @@ def _update_out_and_lse(
     block_lse: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
 
+    # Convert to float32 for numerical stability
+    out = out.to(torch.float32)
     block_out = block_out.to(torch.float32)
+    
+    # Transform block_lse from (batch, seq_len, num_heads) to (batch, num_heads, seq_len, 1)
     block_lse = block_lse.transpose(-2, -1).unsqueeze(dim=-1)
 
     # new_lse = lse + torch.log(1 + torch.exp(block_lse - lse))
     # torch.exp(lse - new_lse) * out + torch.exp(block_lse - new_lse) * block_out
     # For additional context and discussion, please refer to:
     # https://github.com/zhuzilin/ring-flash-attention/pull/34#issuecomment-2076126795
+    
+    # Transpose out and block_out to match lse dimensions for broadcasting
+    # From (batch, seq_len, num_heads, head_dim) to (batch, num_heads, seq_len, head_dim)
+    out = out.transpose(1, 2)
+    block_out = block_out.transpose(1, 2)
+    
     out = out - F.sigmoid(block_lse - lse) * (out - block_out)
     lse = lse - F.logsigmoid(lse - block_lse)
+    
+    # Transpose back
+    out = out.transpose(1, 2)
 
     return out, lse
 

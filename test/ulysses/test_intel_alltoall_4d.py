@@ -72,7 +72,7 @@ def main():
     
     # Import the function after dist init
     print(f"[Rank {rank}] Importing intel_all_to_all_4d...")
-    from ring_flash_attn.intel_ulysses_attn import intel_all_to_all_4d
+    from sp_aurora.intel_ulysses_attn import intel_all_to_all_4d
     print(f"[Rank {rank}] Import successful")
     
     # Test 1: Direct call to intel_all_to_all_4d

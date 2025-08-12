@@ -20,9 +20,9 @@ except ImportError:
     print("Intel Extension for PyTorch not installed, exiting")
     sys.exit(0)
 
-from ring_flash_attn import (
-    ring_flash_attn_varlen_func,
-    zigzag_ring_flash_attn_varlen_func,
+from sp_aurora import (
+    sp_aurora_varlen_func,
+    zigzag_sp_aurora_varlen_func,
 )
 from utils import log, set_seed
 
@@ -67,7 +67,7 @@ def test_varlen_single_gpu():
         
         try:
             # Forward pass
-            out = ring_flash_attn_varlen_func(
+            out = sp_aurora_varlen_func(
                 q, k, v,
                 cu_seqlens,
                 cu_seqlens,
@@ -191,7 +191,7 @@ def test_varlen_distributed():
     
     try:
         # Test ring varlen attention
-        out = ring_flash_attn_varlen_func(
+        out = sp_aurora_varlen_func(
             local_q, local_k, local_v,
             local_cu_seqlens,
             local_cu_seqlens,
@@ -203,7 +203,7 @@ def test_varlen_distributed():
         print(f"[Rank {rank}] ✅ Varlen forward pass successful")
         
         # Test zigzag variant
-        out_zigzag = zigzag_ring_flash_attn_varlen_func(
+        out_zigzag = zigzag_sp_aurora_varlen_func(
             local_q, local_k, local_v,
             local_cu_seqlens,
             local_cu_seqlens,
@@ -247,7 +247,7 @@ def test_edge_cases():
         
         # This should either handle gracefully or raise a clear error
         try:
-            out = ring_flash_attn_varlen_func(q, k, v, cu_seqlens, cu_seqlens, 0)
+            out = sp_aurora_varlen_func(q, k, v, cu_seqlens, cu_seqlens, 0)
             print("  ✅ Empty sequence handled gracefully")
         except Exception as e:
             print(f"  ⚠️  Empty sequence raised error (expected): {type(e).__name__}")
@@ -265,7 +265,7 @@ def test_edge_cases():
         k = torch.randn(long_seq, nheads, d, device=device, dtype=dtype)
         v = torch.randn(long_seq, nheads, d, device=device, dtype=dtype)
         
-        out = ring_flash_attn_varlen_func(
+        out = sp_aurora_varlen_func(
             q, k, v, cu_seqlens, cu_seqlens, long_seq,
             dropout_p=0.0, causal=True
         )
@@ -288,7 +288,7 @@ def test_edge_cases():
         v = torch.randn(200, nheads, d, device=device, dtype=dtype)
         
         # This should work as it's a valid cross-attention scenario
-        out = ring_flash_attn_varlen_func(
+        out = sp_aurora_varlen_func(
             q, k, v, cu_seqlens_q, cu_seqlens_kv, 
             max_seqlen=128, dropout_p=0.0, causal=False
         )
@@ -349,7 +349,7 @@ def benchmark_varlen_performance():
         
         # Warmup
         for _ in range(3):
-            out = ring_flash_attn_varlen_func(
+            out = sp_aurora_varlen_func(
                 q, k, v, cu_seqlens, cu_seqlens, max_seqlen,
                 dropout_p=0.0, causal=True
             )
@@ -361,7 +361,7 @@ def benchmark_varlen_performance():
         
         num_iters = 10
         for _ in range(num_iters):
-            out = ring_flash_attn_varlen_func(
+            out = sp_aurora_varlen_func(
                 q, k, v, cu_seqlens, cu_seqlens, max_seqlen,
                 dropout_p=0.0, causal=True
             )

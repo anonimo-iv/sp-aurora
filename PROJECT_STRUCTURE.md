@@ -12,8 +12,8 @@ This project implements Ring Flash Attention and Ulysses (Sequence Parallel) Att
 
 ```
 Ring-FT/
-├── ring_flash_attn/              # Main source code
-│   ├── intel_ring_flash_attn.py  # Ring attention implementation
+├── sp_aurora/              # Main source code
+│   ├── intel_sp_aurora.py  # Ring attention implementation
 │   ├── intel_ulysses_attn.py     # Ulysses attention implementation
 │   ├── intel_utils.py            # Shared utilities (RingComm, etc.)
 │   ├── intel_flash_attn.py       # Base flash attention operations
@@ -59,7 +59,7 @@ Ring-FT/
 
 ## Key Components
 
-### Ring Flash Attention (`intel_ring_flash_attn.py`)
+### Ring Flash Attention (`intel_sp_aurora.py`)
 - Uses point-to-point communication (isend/irecv)
 - Processes attention in a ring pattern across GPUs
 - Each GPU computes partial attention with its local K,V

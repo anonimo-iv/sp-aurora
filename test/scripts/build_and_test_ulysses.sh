@@ -55,10 +55,10 @@ export MPIR_CVAR_ENABLE_GPU=1
 print_status "Environment variables configured" "success"
 
 # # Step 2: Build SYCL components if available
-# if [ "$USE_SYCL" = "1" ] && [ -f ring_flash_attn/sycl/CMakeLists.txt ]; then
+# if [ "$USE_SYCL" = "1" ] && [ -f sp_aurora/sycl/CMakeLists.txt ]; then
 #     print_status "Building SYCL components..." "info"
     
-#     cd ring_flash_attn/sycl
+#     cd sp_aurora/sycl
     
 #     # Clean previous build
 #     rm -rf build
@@ -110,14 +110,14 @@ print_status "Environment variables configured" "success"
 # # Step 4: Verify installation
 # print_status "Verifying installation..." "info"
 
-# python -c "import ring_flash_attn; print('Ring Flash Attention imported successfully')"
+# python -c "import sp_aurora; print('Ring Flash Attention imported successfully')"
 # if [ $? -ne 0 ]; then
-#     print_status "Failed to import ring_flash_attn" "error"
+#     print_status "Failed to import sp_aurora" "error"
 #     exit 1
 # fi
 
 # if [ "$USE_SYCL" = "1" ]; then
-#     python -c "from ring_flash_attn import is_sycl_available; print(f'SYCL available: {is_sycl_available()}')"
+#     python -c "from sp_aurora import is_sycl_available; print(f'SYCL available: {is_sycl_available()}')"
 # fi
 
 # print_status "Installation verified" "success"

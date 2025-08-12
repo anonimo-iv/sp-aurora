@@ -9,11 +9,11 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ring_flash_attn.intel_flash_attn_sycl import (
+from sp_aurora.intel_flash_attn_sycl import (
     is_sycl_available,
     intel_flash_attn_forward_sycl,
 )
-from ring_flash_attn.intel_flash_attn import intel_flash_attn_forward
+from sp_aurora.intel_flash_attn import intel_flash_attn_forward
 
 def test_performance():
     if not is_sycl_available():

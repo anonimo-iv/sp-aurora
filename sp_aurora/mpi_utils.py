@@ -193,13 +193,7 @@ def init_distributed_backend(backend: Optional[str] = None, timeout_seconds: int
             try:
                 import oneccl_bindings_for_pytorch
                 backend = 'ccl'
-                # Set Intel-specific environment variables
-                if env_info['launcher'] == 'mpiexec':
-                    os.environ.setdefault('CCL_BACKEND', 'native')
-                    os.environ.setdefault('CCL_ATL_TRANSPORT', 'ofi')
-                    os.environ.setdefault('FI_PROVIDER', 'cxi')
-                    os.environ.setdefault('CCL_ZE_IPC_EXCHANGE', 'drmfd')
-                    os.environ.setdefault('CCL_ZE_ENABLE', '1')
+                # Environment variables are now set in __init__.py for consistency
             except ImportError:
                 backend = 'gloo'  # Fallback for Intel GPU
         elif torch.cuda.is_available():

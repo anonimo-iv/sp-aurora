@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ring_flash_attn.intel_flash_attn_sycl import (
+from sp_aurora.intel_flash_attn_sycl import (
     is_sycl_available,
     get_sycl_device_info,
     intel_flash_attn_forward_sycl,
@@ -24,7 +24,7 @@ from ring_flash_attn.intel_flash_attn_sycl import (
 
 # Import the SYCL module directly to access individual kernels
 try:
-    import ring_flash_attn.sycl_flash_attn as sycl_fa
+    import sp_aurora.sycl_flash_attn as sycl_fa
     HAS_SYCL = True
 except ImportError:
     HAS_SYCL = False
@@ -32,7 +32,7 @@ except ImportError:
     sys.exit(1)
 
 # Import baseline implementations
-from ring_flash_attn.intel_flash_attn import intel_flash_attn_forward
+from sp_aurora.intel_flash_attn import intel_flash_attn_forward
 
 
 def benchmark_kernel(func, q, k, v, causal=True, warmup=3, iterations=10, kernel_name="Unknown"):

@@ -34,7 +34,7 @@ source /opt/intel/oneapi/setvars.sh
 
 # Build with SYCL support
 cd ring-flash-attention
-bash ring_flash_attn/sycl_bindings/build.sh
+bash sp_aurora/sycl_bindings/build.sh
 pip install .
 ```
 
@@ -43,7 +43,7 @@ pip install .
 ```python
 import torch
 import intel_extension_for_pytorch as ipex
-from ring_flash_attn import ring_flash_attn_func, setup_mpi_distributed
+from sp_aurora import sp_aurora_func, setup_mpi_distributed
 
 # Setup distributed environment
 setup_info = setup_mpi_distributed()
@@ -56,7 +56,7 @@ k = torch.randn(batch_size, seq_len, num_heads, head_dim, device=device, dtype=t
 v = torch.randn(batch_size, seq_len, num_heads, head_dim, device=device, dtype=torch.bfloat16)
 
 # Run ring flash attention
-output = ring_flash_attn_func(q, k, v, causal=True)
+output = sp_aurora_func(q, k, v, causal=True)
 ```
 
 ## Launching Distributed Training
@@ -75,9 +75,9 @@ mpiexec -n 8 -genv CCL_BACKEND=native -genv CCL_ATL_TRANSPORT=ofi python your_sc
 ## API Reference
 
 ### Core Functions
-- `ring_flash_attn_func`: Basic ring attention (Intel GPU optimized)
-- `ring_flash_attn_kvpacked_func`: Ring attention with key-value packed inputs
-- `ring_flash_attn_qkvpacked_func`: Ring attention with query-key-value packed inputs
+- `sp_aurora_func`: Basic ring attention (Intel GPU optimized)
+- `sp_aurora_kvpacked_func`: Ring attention with key-value packed inputs
+- `sp_aurora_qkvpacked_func`: Ring attention with query-key-value packed inputs
 
 ### SYCL Functions
 - `is_sycl_available()`: Check if SYCL acceleration is available
@@ -103,13 +103,13 @@ Ring attention enables distributed training across multiple GPUs with efficient 
 
 ```bash
 # Basic functionality test
-python test/test_intel_ring_flash_attn.py
+python test/test_intel_sp_aurora.py
 
 # Distributed test
-torchrun --nproc_per_node=4 test/test_ring_flash_attn_func.py
+torchrun --nproc_per_node=4 test/test_sp_aurora_func.py
 
 # MPI test
-mpiexec -n 4 python test/test_mpi_ring_flash_attn.py
+mpiexec -n 4 python test/test_mpi_sp_aurora.py
 
 # SYCL flash attention test
 python test/test_sycl_flash_attention.py

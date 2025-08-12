@@ -64,12 +64,12 @@ cmdclass = {}
 
 if build_sycl:
     ext_modules.append(
-        CMakeExtension('ring_flash_attn.sycl_flash_attn', 'ring_flash_attn/sycl')
+        CMakeExtension('sp_aurora.sycl_flash_attn', 'sp_aurora/sycl')
     )
     cmdclass['build_ext'] = CMakeBuild
 
 setup(
-    name="ring_flash_attn",
+    name="sp_aurora",
     version="0.1",
     author="zhuzilin",
     url="https://github.com/zhuzilin/ring-flash-attention",

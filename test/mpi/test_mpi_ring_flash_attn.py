@@ -5,14 +5,14 @@ This test works with both torchrun and mpiexec
 
 Usage:
     # With torchrun (existing)
-    torchrun --nproc_per_node=2 test_mpi_ring_flash_attn.py
+    torchrun --nproc_per_node=2 test_mpi_sp_aurora.py
     
     # With mpiexec (new)
-    mpiexec -n 2 python test_mpi_ring_flash_attn.py
+    mpiexec -n 2 python test_mpi_sp_aurora.py
     
     # With Intel MPI (Intel GPU)
     mpiexec -n 2 -genv CCL_BACKEND=native -genv CCL_ATL_TRANSPORT=ofi \
-        python test_mpi_ring_flash_attn.py
+        python test_mpi_sp_aurora.py
 """
 
 import os
@@ -23,7 +23,7 @@ import traceback
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ring_flash_attn.mpi_utils import setup_mpi_distributed, cleanup_distributed
+from sp_aurora.mpi_utils import setup_mpi_distributed, cleanup_distributed
 
 
 def test_basic_mpi_setup():
@@ -81,7 +81,7 @@ def test_ring_attention_with_mpi():
             return True
         
         # Import ring attention after distributed setup
-        from ring_flash_attn import ring_flash_attn_func
+        from sp_aurora import ring_flash_attn_func
         
         # Test parameters
         batch_size = 1
@@ -165,7 +165,7 @@ def test_intel_specific_mpi():
     
     try:
         import intel_extension_for_pytorch as ipex
-        from ring_flash_attn.intel_ring_flash_attn import intel_ring_flash_attn_func
+        from sp_aurora.intel_ring_flash_attn import intel_ring_flash_attn_func
         
         # Setup distributed
         setup_info = setup_mpi_distributed(backend='ccl')
@@ -177,7 +177,7 @@ def test_intel_specific_mpi():
             print(f"[Rank {rank}] Single process - testing single GPU Intel implementation")
             
             # Test single GPU Intel flash attention
-            from ring_flash_attn.intel_flash_attn import intel_flash_attn_forward
+            from sp_aurora.intel_flash_attn import intel_flash_attn_forward
             
             batch_size = 1
             seqlen = 256
@@ -268,7 +268,7 @@ def main():
     print("="*80)
     
     # Detect environment
-    from ring_flash_attn.mpi_utils import detect_mpi_environment, setup_distributed_environment
+    from sp_aurora.mpi_utils import detect_mpi_environment, setup_distributed_environment
     
     env_info = setup_distributed_environment()
     print(f"Detected launcher: {env_info['launcher']}")

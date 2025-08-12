@@ -16,7 +16,7 @@ The Ring Flash Attention library now supports both `torchrun` and `mpiexec` for 
 ### Basic Usage
 
 ```python
-from ring_flash_attn import setup_mpi_distributed, ring_flash_attn_func
+from sp_aurora import setup_mpi_distributed, sp_aurora_func
 
 # Setup distributed environment (works with both torchrun and mpiexec)
 setup_info = setup_mpi_distributed()
@@ -26,7 +26,7 @@ world_size = setup_info['world_size']
 device = setup_info['device']
 
 # Your existing Ring Flash Attention code works unchanged
-output = ring_flash_attn_func(q, k, v, causal=True)
+output = sp_aurora_func(q, k, v, causal=True)
 ```
 
 ### Launching with Different Methods
@@ -175,7 +175,7 @@ Detects if running under MPI environment.
 ```python
 #!/usr/bin/env python3
 import torch
-from ring_flash_attn import setup_mpi_distributed, ring_flash_attn_func, cleanup_distributed
+from sp_aurora import setup_mpi_distributed, sp_aurora_func, cleanup_distributed
 
 def main():
     # Setup distributed (works with both torchrun and mpiexec)
@@ -198,7 +198,7 @@ def main():
     v = torch.randn(batch_size, seq_len_per_rank, nheads, d, device=device)
     
     # Ring attention (handles distributed communication automatically)
-    output = ring_flash_attn_func(q, k, v, causal=True)
+    output = sp_aurora_func(q, k, v, causal=True)
     
     print(f"Rank {rank}: Output shape {output.shape}")
     
@@ -269,7 +269,7 @@ You can override backend selection:
 setup_info = setup_mpi_distributed(backend='nccl')
 
 # Or use the lower-level function
-from ring_flash_attn import init_distributed_backend
+from sp_aurora import init_distributed_backend
 success = init_distributed_backend(backend='ccl')
 ```
 
@@ -370,7 +370,7 @@ rank = dist.get_rank()
 device = torch.device(f"cuda:{rank}")
 
 # After (both torchrun and mpiexec)
-from ring_flash_attn import setup_mpi_distributed
+from sp_aurora import setup_mpi_distributed
 setup_info = setup_mpi_distributed()
 rank = setup_info['rank']
 device = setup_info['device']

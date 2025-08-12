@@ -5,6 +5,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+#claude documents
+**/CLAUDE*
+
 # C extensions
 # *.so
 
@@ -12,6 +15,7 @@ __pycache__/
 .Python
 build/
 develop-eggs/
+examples/
 dist/
 downloads/
 eggs/

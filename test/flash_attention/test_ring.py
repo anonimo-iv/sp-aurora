@@ -42,9 +42,9 @@ except ImportError as e:
     INTEL_GPU_AVAILABLE = False
 
 # Import ring flash attention modules
-from ring_flash_attn.intel_ring_flash_attn import intel_ring_flash_attn_func, intel_ring_flash_attn_forward, intel_ring_flash_attn_backward
-from ring_flash_attn.intel_utils import IntelRingComm, update_out_and_lse
-from ring_flash_attn.intel_flash_attn import _flash_attn_forward, _flash_attn_backward
+from sp_aurora.intel_ring_flash_attn import intel_ring_flash_attn_func, intel_ring_flash_attn_forward, intel_ring_flash_attn_backward
+from sp_aurora.utils import RingComm as IntelRingComm, update_out_and_lse
+from sp_aurora.intel_flash_attn import _flash_attn_forward, _flash_attn_backward
 
 # Global variables for setup
 RANK = None

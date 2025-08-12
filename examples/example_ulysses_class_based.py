@@ -12,11 +12,11 @@ import os
 import sys
 import time
 
-# Add parent directory to path to import ring_flash_attn
+# Add parent directory to path to import sp_aurora
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ring_flash_attn import UlyssesAttention
-from ring_flash_attn.ulysses.attn_layer import AttnType
+from sp_aurora import UlyssesAttention
+from sp_aurora.ulysses.attn_layer import AttnType
 
 
 def setup(rank, world_size):

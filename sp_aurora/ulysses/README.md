@@ -7,7 +7,7 @@ This module implements Ulysses attention following the yunchang structure, adapt
 The Ulysses attention implementation is organized as follows:
 
 ```
-ring_flash_attn/
+sp_aurora/
 ├── ulysses/
 │   ├── __init__.py
 │   └── attn_layer.py    # Main UlyssesAttention class
@@ -21,8 +21,8 @@ ring_flash_attn/
 ### Class-based Interface (Recommended)
 
 ```python
-from ring_flash_attn import UlyssesAttention
-from ring_flash_attn.ulysses.attn_layer import AttnType
+from sp_aurora import UlyssesAttention
+from sp_aurora.ulysses.attn_layer import AttnType
 
 # Create Ulysses attention module
 ulysses_attn = UlyssesAttention(
@@ -40,7 +40,7 @@ output = ulysses_attn(query, key, value, causal=True)
 ### Function-based Interface (Backward Compatible)
 
 ```python
-from ring_flash_attn import ulysses_flash_attn_func
+from sp_aurora import ulysses_flash_attn_func
 
 # Direct function call
 output = ulysses_flash_attn_func(q, k, v, causal=True)

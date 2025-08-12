@@ -10,7 +10,7 @@ import warnings
 
 # Try to import the SYCL module
 try:
-    import ring_flash_attn.sycl_flash_attn as sycl_fa
+    import sp_aurora.sycl_flash_attn as sycl_fa
     HAS_SYCL = True
 except ImportError:
     HAS_SYCL = False

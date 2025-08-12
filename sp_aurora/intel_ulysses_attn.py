@@ -9,7 +9,7 @@ import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 from typing import Optional, Tuple, Any
-from .intel_utils import update_out_and_lse, get_default_args
+from .utils import update_out_and_lse, get_default_args
 import intel_extension_for_pytorch as ipex
 
 # Import the new class-based implementation

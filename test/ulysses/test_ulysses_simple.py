@@ -74,7 +74,7 @@ def main():
     
     # Import Ulysses functions after dist init
     print(f"[Rank {rank}] Importing Ulysses functions...")
-    from ring_flash_attn.intel_ulysses_attn import intel_ulysses_flash_attn_func
+    from sp_aurora.intel_ulysses_attn import intel_ulysses_flash_attn_func
     print(f"[Rank {rank}] Import successful")
     
     # Test with small tensors

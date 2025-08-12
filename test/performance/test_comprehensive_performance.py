@@ -19,12 +19,12 @@ import os
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ring_flash_attn.intel_flash_attn_sycl import (
+from sp_aurora.intel_flash_attn_sycl import (
     intel_flash_attn_forward_sycl, 
     is_sycl_available, 
     get_sycl_device_info
 )
-from ring_flash_attn.intel_flash_attn import intel_flash_attn_forward
+from sp_aurora.intel_flash_attn import intel_flash_attn_forward
 
 def benchmark_kernel(kernel_func, q, k, v, causal, scale, kernel_name, warmup=3, num_runs=10):
     """Benchmark a single kernel implementation"""

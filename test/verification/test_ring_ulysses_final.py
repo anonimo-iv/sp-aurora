@@ -32,7 +32,7 @@ def test_ring_attention(rank, world_size, device):
     print(f"\n[Rank {rank}] === Testing Ring Flash Attention ===")
     
     try:
-        from ring_flash_attn import ring_flash_attn_func
+        from sp_aurora import sp_aurora_func
         
         # Create test tensors
         batch_size = 2
@@ -50,7 +50,7 @@ def test_ring_attention(rank, world_size, device):
         
         # Test forward
         start = time.time()
-        output = ring_flash_attn_func(q, k, v, causal=True, group=None)
+        output = sp_aurora_func(q, k, v, causal=True, group=None)
         torch.xpu.synchronize() if device.type == 'xpu' else None
         elapsed = time.time() - start
         
@@ -74,7 +74,7 @@ def test_ulysses_attention(rank, world_size, device):
     print(f"\n[Rank {rank}] === Testing Ulysses Flash Attention ===")
     
     try:
-        from ring_flash_attn import ulysses_flash_attn_func
+        from sp_aurora import ulysses_flash_attn_func
         
         # Create test tensors
         batch_size = 2

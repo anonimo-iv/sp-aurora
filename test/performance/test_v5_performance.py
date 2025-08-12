@@ -10,8 +10,8 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ring_flash_attn.intel_flash_attn_sycl import intel_flash_attn_forward_sycl
-from ring_flash_attn.intel_flash_attn import intel_flash_attn_forward
+from sp_aurora.intel_flash_attn_sycl import intel_flash_attn_forward_sycl
+from sp_aurora.intel_flash_attn import intel_flash_attn_forward
 
 def benchmark(func, q, k, v, causal=False, warmup=5, iterations=20):
     """Benchmark a function"""

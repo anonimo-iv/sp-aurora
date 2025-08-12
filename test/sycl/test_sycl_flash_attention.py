@@ -13,13 +13,13 @@ import time
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ring_flash_attn.intel_flash_attn_sycl import (
+from sp_aurora.intel_flash_attn_sycl import (
     is_sycl_available,
     get_sycl_device_info,
     intel_flash_attn_forward_sycl,
     auto_select_flash_attn_forward
 )
-from ring_flash_attn.intel_flash_attn import intel_flash_attn_forward
+from sp_aurora.intel_flash_attn import intel_flash_attn_forward
 
 
 def test_sycl_availability():
@@ -212,7 +212,7 @@ if __name__ == "__main__":
         print("\nSkipping tests as SYCL is not available.")
         print("To build SYCL support:")
         print("  1. Ensure Intel oneAPI is installed")
-        print("  2. Run: cd ring_flash_attn/sycl && ./build.sh")
+        print("  2. Run: cd sp_aurora/sycl && ./build.sh")
         print("  3. Install: BUILD_SYCL=1 pip install -e .")
     
     print("\nTest suite completed!")

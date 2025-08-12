@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import oneccl_bindings_for_pytorch
 
 # Import the modified Ulysses attention with fallback
-from ring_flash_attn.intel_ulysses_attn_with_fallback import (
+from sp_aurora.intel_ulysses_attn_with_fallback import (
     ulysses_flash_attn_func_with_fallback,
     intel_all_to_all_4d_with_fallback
 )

@@ -33,7 +33,7 @@ def test_ulysses_forward(rank, world_size, device):
     print(f"\n[Rank {rank}] Test 1: Ulysses Forward Pass")
     
     try:
-        from ring_flash_attn.intel_ulysses_attn import intel_ulysses_flash_attn_forward
+        from sp_aurora.intel_ulysses_attn import intel_ulysses_flash_attn_forward
         
         # Create test tensors
         batch_size = 2
@@ -78,7 +78,7 @@ def test_ulysses_func(rank, world_size, device):
     print(f"\n[Rank {rank}] Test 2: Ulysses Attention Function")
     
     try:
-        from ring_flash_attn import ulysses_flash_attn_func
+        from sp_aurora import ulysses_flash_attn_func
         
         # Create test tensors (note different shape order for func API)
         batch_size = 2
@@ -122,7 +122,7 @@ def test_ulysses_backward(rank, world_size, device):
     print(f"\n[Rank {rank}] Test 3: Ulysses Backward Pass")
     
     try:
-        from ring_flash_attn import ulysses_flash_attn_func
+        from sp_aurora import ulysses_flash_attn_func
         
         # Create test tensors with requires_grad
         batch_size = 1
@@ -167,7 +167,7 @@ def test_ulysses_numerical_correctness(rank, world_size, device):
     print(f"\n[Rank {rank}] Test 4: Ulysses Numerical Correctness")
     
     try:
-        from ring_flash_attn import ulysses_flash_attn_func
+        from sp_aurora import ulysses_flash_attn_func
         
         # Try to disable Intel optimizations that might cause issues
         if hasattr(torch, 'xpu') and device.type == 'xpu':
@@ -360,7 +360,7 @@ def test_ulysses_simple_case(rank, world_size, device):
     print(f"\n[Rank {rank}] Test 5: Simple Ulysses Case")
     
     try:
-        from ring_flash_attn import ulysses_flash_attn_func
+        from sp_aurora import ulysses_flash_attn_func
         
         # Very simple test case
         batch_size = 1

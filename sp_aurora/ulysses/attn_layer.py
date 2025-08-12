@@ -17,19 +17,57 @@ except ImportError:
     IPEX_AVAILABLE = False
 
 
-class AttnType(Enum):
-    """Attention implementation types"""
+class AttnType(str, Enum):
+    """Attention implementation types.
+    
+    Compatible with yunchang's AttnType enum. Flash Attention variants
+    use PyTorch's scaled_dot_product_attention.
+    """
     TORCH = "torch"
     INTEL_SYCL = "intel_sycl"
     INTEL_ONEDNN = "intel_onednn"
+    # Yunchang compatibility - use PyTorch SDPA
+    FA = "flash_attn"  # Uses torch.nn.functional.scaled_dot_product_attention
+    FA3 = "flash_attn_3"  # Uses torch.nn.functional.scaled_dot_product_attention
 
 
 def select_flash_attn_impl(attn_type: AttnType):
-    """Select the appropriate attention implementation based on the type"""
+    """Select the appropriate attention implementation based on the type.
     
-    if attn_type == AttnType.INTEL_SYCL:
+    Compatible with yunchang's select_flash_attn_impl API.
+    """
+    
+    # Map yunchang flash attention types to PyTorch SDPA
+    if attn_type in (AttnType.FA, AttnType.FA3):
+        def sdpa_attn_fn(q, k, v, dropout_p=0.0, softmax_scale=None, causal=False,
+                        window_size=(-1, -1), softcap=0.0, alibi_slopes=None,
+                        deterministic=False, return_attn_probs=False):
+            """PyTorch scaled_dot_product_attention wrapper."""
+            if softmax_scale is None:
+                softmax_scale = q.shape[-1] ** -0.5
+            
+            # Apply scaling to query
+            q_scaled = q * softmax_scale
+            
+            # Use PyTorch's optimized SDPA
+            out = F.scaled_dot_product_attention(
+                q_scaled, k, v,
+                attn_mask=None,
+                dropout_p=dropout_p if not deterministic else 0.0,
+                is_causal=causal,
+                scale=1.0  # Already scaled q
+            )
+            
+            if return_attn_probs:
+                # SDPA doesn't return attention probs, return None as placeholder
+                return out, None
+            return out
+        
+        return sdpa_attn_fn
+    
+    elif attn_type == AttnType.INTEL_SYCL:
         try:
-            from ring_flash_attn.intel_flash_attn_sycl import (
+            from sp_aurora.intel_flash_attn_sycl import (
                 intel_flash_attention_forward,
                 intel_flash_attention_backward
             )
@@ -126,7 +164,7 @@ class UlyssesAttention(torch.nn.Module):
             # Try to use Intel SYCL implementation if available
             if attn_type == AttnType.TORCH:
                 try:
-                    from ring_flash_attn.intel_flash_attn_sycl import intel_flash_attention_forward
+                    from sp_aurora.intel_flash_attn_sycl import intel_flash_attention_forward
                     self.attn_type = AttnType.INTEL_SYCL
                 except ImportError:
                     pass

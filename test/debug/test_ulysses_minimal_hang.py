@@ -79,10 +79,10 @@ def main():
     )
     print(f"[Rank {rank}] Process group initialized")
     
-    # Try importing ring_flash_attn modules (like in original test)
-    print(f"[Rank {rank}] Importing ring_flash_attn modules...")
-    from ring_flash_attn import ulysses_flash_attn_func, ulysses_flash_attn_qkvpacked_func, ulysses_flash_attn_kvpacked_func
-    from ring_flash_attn.intel_ulysses_attn import IntelSeqAllToAll4D, intel_all_to_all_4d
+    # Try importing sp_aurora modules (like in original test)
+    print(f"[Rank {rank}] Importing sp_aurora modules...")
+    from sp_aurora import ulysses_flash_attn_func, ulysses_flash_attn_qkvpacked_func, ulysses_flash_attn_kvpacked_func
+    from sp_aurora.intel_ulysses_attn import IntelSeqAllToAll4D, intel_all_to_all_4d
     print(f"[Rank {rank}] Imports successful")
     
     print(f"[Rank {rank}] Test completed without hang!")

@@ -18,7 +18,7 @@ try:
 except ImportError:
     HAS_INTEL_GPU = False
 
-from ring_flash_attn.intel_flash_attn import intel_flash_attn_forward
+from sp_aurora.intel_flash_attn import intel_flash_attn_forward
 
 
 def test_intel_flash_attention_basic():
@@ -144,7 +144,7 @@ def test_ring_attention_single_gpu():
     print("="*60)
     
     try:
-        from ring_flash_attn import ring_flash_attn_func
+        from sp_aurora import sp_aurora_func
         
         device = 'xpu' if HAS_INTEL_GPU else 'cuda' if torch.cuda.is_available() else 'cpu'
         dtype = torch.float16 if device != 'cpu' else torch.float32
@@ -163,7 +163,7 @@ def test_ring_attention_single_gpu():
         print(f"Input shape: {q.shape}")
         
         # Run ring attention (should work even without distributed setup)
-        output = ring_flash_attn_func(q, k, v, causal=True)
+        output = sp_aurora_func(q, k, v, causal=True)
         
         print(f"\n✅ Ring attention forward pass successful!")
         print(f"Output shape: {output.shape}")

@@ -53,8 +53,8 @@ except ImportError as e:
     print(f"[Early Rank {mpi_rank_early}] Warning: Intel Extension or OneCCL not available: {e}")
     INTEL_GPU_AVAILABLE = False
 
-# Defer ring_flash_attn imports until after distributed initialization
-print(f"[Early Rank {mpi_rank_early}] Deferring ring_flash_attn imports", flush=True)
+# Defer sp_aurora imports until after distributed initialization
+print(f"[Early Rank {mpi_rank_early}] Deferring sp_aurora imports", flush=True)
 
 
 def setup_distributed():
@@ -436,12 +436,12 @@ def main():
         # Setup distributed environment
         setup_info = setup_distributed()
         
-        # Import ring_flash_attn modules after distributed initialization
-        print(f"[Rank {mpi_rank}] Importing ring_flash_attn modules...", flush=True)
+        # Import sp_aurora modules after distributed initialization
+        print(f"[Rank {mpi_rank}] Importing sp_aurora modules...", flush=True)
         global ulysses_flash_attn_func, ulysses_flash_attn_qkvpacked_func, ulysses_flash_attn_kvpacked_func
         global IntelSeqAllToAll4D, intel_all_to_all_4d
-        from ring_flash_attn import ulysses_flash_attn_func, ulysses_flash_attn_qkvpacked_func, ulysses_flash_attn_kvpacked_func
-        from ring_flash_attn.intel_ulysses_attn import IntelSeqAllToAll4D, intel_all_to_all_4d
+        from sp_aurora import ulysses_flash_attn_func, ulysses_flash_attn_qkvpacked_func, ulysses_flash_attn_kvpacked_func
+        from sp_aurora.intel_ulysses_attn import IntelSeqAllToAll4D, intel_all_to_all_4d
         print(f"[Rank {mpi_rank}] Imports successful", flush=True)
         
         rank = setup_info['rank']

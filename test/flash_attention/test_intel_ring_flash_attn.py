@@ -5,14 +5,14 @@ Tests both basic flash attention and distributed ring attention functionality
 
 Usage:
     # With torchrun (existing)
-    torchrun --nproc_per_node=2 test_intel_ring_flash_attn.py
+    torchrun --nproc_per_node=2 test_intel_sp_aurora.py
     
     # With mpiexec (new)
-    mpiexec -n 2 python test_intel_ring_flash_attn.py
+    mpiexec -n 2 python test_intel_sp_aurora.py
     
     # With Intel MPI for Intel GPU
     mpiexec -n 2 -genv CCL_BACKEND=native -genv CCL_ATL_TRANSPORT=ofi \
-        python test_intel_ring_flash_attn.py
+        python test_intel_sp_aurora.py
 """
 
 import os
@@ -40,15 +40,15 @@ except ImportError as e:
     sys.exit(0)
 
 # Import ring flash attention modules - Intel GPU backend automatically used
-from ring_flash_attn import (
+from sp_aurora import (
     ring_flash_attn_func,
     ring_flash_attn_qkvpacked_func,
     ring_flash_attn_kvpacked_func,
 )
 
 # Import Intel-specific implementations
-from ring_flash_attn.intel_flash_attn import intel_flash_attn_forward, intel_flash_attn_backward
-from ring_flash_attn.intel_ring_flash_attn import intel_ring_flash_attn_func
+from sp_aurora.intel_flash_attn import intel_flash_attn_forward, intel_flash_attn_backward
+from sp_aurora.intel_ring_flash_attn import intel_ring_flash_attn_func
 
 # Import test utilities
 from utils import log, set_seed
@@ -217,8 +217,8 @@ def test_distributed_ring_attention():
         
         if world_size == 1:
             print("⚠️  Single process detected - skipping distributed test")
-            print("   Run with: torchrun --nproc_per_node=2 test_intel_ring_flash_attn.py")
-            print("   Or with: mpiexec -n 2 python test_intel_ring_flash_attn.py")
+            print("   Run with: torchrun --nproc_per_node=2 test_intel_sp_aurora.py")
+            print("   Or with: mpiexec -n 2 python test_intel_sp_aurora.py")
             return True
         
         print(f"[Rank {rank}] Setup successful!")
@@ -490,7 +490,7 @@ def main():
     
     # Detect environment
     try:
-        from ring_flash_attn.mpi_utils import setup_distributed_environment
+        from sp_aurora.mpi_utils import setup_distributed_environment
         env_info = setup_distributed_environment()
         print(f"Detected launcher: {env_info['launcher']}")
         print(f"Process info: rank={env_info['rank']}, world_size={env_info['world_size']}")
@@ -517,8 +517,8 @@ def main():
         ])
     else:
         print("\n⚠️  Note: Run with torchrun or mpiexec to test distributed features")
-        print("   Example: torchrun --nproc_per_node=2 test_intel_ring_flash_attn.py")
-        print("   Example: mpiexec -n 2 python test_intel_ring_flash_attn.py")
+        print("   Example: torchrun --nproc_per_node=2 test_intel_sp_aurora.py")
+        print("   Example: mpiexec -n 2 python test_intel_sp_aurora.py")
     
     results = []
     for test_name, test_func in tests:

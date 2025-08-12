@@ -15,12 +15,12 @@ import matplotlib.pyplot as plt
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ring_flash_attn.intel_flash_attn_sycl import (
+from sp_aurora.intel_flash_attn_sycl import (
     is_sycl_available,
     get_sycl_device_info,
     intel_flash_attn_forward_sycl,
 )
-from ring_flash_attn.intel_flash_attn import intel_flash_attn_forward
+from sp_aurora.intel_flash_attn import intel_flash_attn_forward
 
 
 def get_memory_traffic(batch, heads, seq_len, head_dim, causal=True):

@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import oneccl_bindings_for_pytorch
 
 # Import our fallback implementations
-from ring_flash_attn.comm.all_to_all_fallback import (
+from sp_aurora.comm.all_to_all_fallback import (
     all_to_all_single_native,
     all_to_all_using_allgather,
     all_to_all_using_send_recv,

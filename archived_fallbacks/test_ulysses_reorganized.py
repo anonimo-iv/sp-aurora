@@ -25,9 +25,9 @@ import datetime
 from mpi4py import MPI
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ring_flash_attn import UlyssesAttention, ulysses_flash_attn_func
-from ring_flash_attn.ulysses.attn_layer import AttnType
-from ring_flash_attn.comm.all_to_all import SeqAllToAll4D, all_to_all_4D
+from sp_aurora import UlyssesAttention, ulysses_flash_attn_func
+from sp_aurora.ulysses.attn_layer import AttnType
+from sp_aurora.comm.all_to_all import SeqAllToAll4D, all_to_all_4D
 
 
 def test_ulysses_class_single_gpu():

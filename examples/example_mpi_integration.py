@@ -28,7 +28,7 @@ from typing import Optional
 import time
 
 # Import Ring Flash Attention with MPI support
-from ring_flash_attn import (
+from sp_aurora import (
     ring_flash_attn_func,
     setup_mpi_distributed, 
     cleanup_distributed

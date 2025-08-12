@@ -39,6 +39,6 @@ echo "Starting torchrun with 2 processes..."
 
 # Run the fixed test
 # torchrun --nproc_per_node=2 --nnodes=1 --node_rank=0 --master_addr="127.0.0.1" --master_port=29500 ./test_intel_gpu_fixed.py
-mpirun -n 2 python test_intel_ring_flash_attn.py
+mpirun -n 2 python test_intel_sp_aurora.py
 
 echo "Test completed."

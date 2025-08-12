@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 import time
 import numpy as np
-from ring_flash_attn.intel_flash_attn_sycl import intel_flash_attn_forward_sycl, is_sycl_available, get_sycl_device_info
+from sp_aurora.intel_flash_attn_sycl import intel_flash_attn_forward_sycl, is_sycl_available, get_sycl_device_info
 
 def benchmark_kernel(kernel_func, q, k, v, causal, scale, kernel_name, warmup=3, num_runs=10):
     """Benchmark a single kernel implementation"""
